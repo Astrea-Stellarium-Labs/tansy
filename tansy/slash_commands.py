@@ -8,6 +8,8 @@ from dis_snek.client.utils.misc_utils import get_object_name
 from dis_snek.client.utils.misc_utils import get_parameters
 from dis_snek.client.utils.misc_utils import maybe_coroutine
 
+from . import slash_param
+
 
 def _convert_to_bool(argument: str) -> bool:
     lowered = argument.lower()
@@ -87,7 +89,7 @@ async def _convert(
     param: "TansySlashCommandParameter",
     ctx: dis_snek.InteractionContext,
     arg: typing.Any,
-) -> tuple[typing.Any, bool]:
+) -> typing.Any:
     converted = dis_snek.MISSING
     for converter in param.converters:
         try:
@@ -99,11 +101,9 @@ async def _convert(
                     raise
                 raise dis_snek.errors.BadArgument(str(e)) from e
 
-    used_default = False
     if converted == dis_snek.MISSING:
         if param.optional:
             converted = param.default
-            used_default = True
         else:
             union_types = typing.get_args(param.type)
             union_names = tuple(get_object_name(t) for t in union_types)
@@ -112,7 +112,7 @@ async def _convert(
                 f'Could not convert "{arg}" into {union_types_str}.'
             )
 
-    return converted, used_default
+    return converted
 
 
 @attrs.define(slots=True)
@@ -137,15 +137,30 @@ class TansySlashCommand(dis_snek.SlashCommand):
 
     def __attrs_post_init__(self) -> None:
         if self.callback is not None:
+            self.options = []
+
             params = get_parameters(self.callback)
             for name, param in params.items():
                 cmd_param = TansySlashCommandParameter()
-                cmd_param.name = name
-                cmd_param.default = (
-                    param.default
-                    if param.default is not param.empty
-                    else dis_snek.MISSING
-                )
+
+                if isinstance(param.default, slash_param.ParamInfo):
+                    option = param.default.generate_option()
+                else:
+                    option_type = slash_param.get_option(param.annotation)
+                    option = dis_snek.SlashCommandOption(name=name, type=option_type)
+
+                cmd_param.name = option.name.default or name
+                option.name = cmd_param.name
+
+                if (
+                    isinstance(param.default, slash_param.ParamInfo)
+                    and param.default.default is not dis_snek.MISSING
+                ):
+                    cmd_param.default = param.default.default
+                elif param.default is not param.empty:
+                    cmd_param.default = param.default
+                else:
+                    cmd_param.default = dis_snek.MISSING
 
                 cmd_param.type = anno = param.annotation
 
@@ -162,11 +177,6 @@ class TansySlashCommand(dis_snek.SlashCommand):
                     cmd_param.converters.append(converter)
 
                 self.parameters[name] = cmd_param
-
-            if hasattr(self.callback, "options"):
-                if not self.options:
-                    self.options = []
-                self.options += self.callback.options
 
             if hasattr(self.callback, "permissions"):
                 self.permissions = self.callback.permissions
@@ -190,17 +200,11 @@ class TansySlashCommand(dis_snek.SlashCommand):
             new_args = []
 
             for arg in ctx.args:
-                while param_index < len(param_list):
-                    param = param_list[param_index]
+                # TODO: actually make this work
+                param = param_list[param_index]
 
-                    converted, used_default = await _convert(param, ctx, arg)
-                    new_args.append(converted)
-                    param_index += 1
-
-                    if not used_default:
-                        break
-
-            if param_index < len(self.parameters):
-                new_args.extend(param.default for param in param_list[param_index:])
+                converted = await _convert(param, ctx, arg)
+                new_args.append(converted)
+                param_index += 1
 
             return await callback(ctx, *new_args)

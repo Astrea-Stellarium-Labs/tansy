@@ -6,7 +6,10 @@ import attrs
 import dis_snek
 
 
-def _get_option(t: dis_snek.OptionTypes | type):
+def get_option(t: dis_snek.OptionTypes | type):
+    if typing.get_origin(t) == typing.Annotated:
+        t = typing.get_args(t)[1]
+
     if isinstance(t, dis_snek.OptionTypes):
         return t
 
@@ -57,7 +60,7 @@ class ParamInfo:
     type: "typing.Optional[dis_snek.OptionTypes | type]" = attrs.field(default=None)
     converter: typing.Optional[dis_snek.Converter] = attrs.field(
         default=None, converter=_converter_converter
-    )
+    )  # type: ignore
     default: typing.Any = attrs.field(default=dis_snek.Missing)
     description: dis_snek.LocalisedDesc = attrs.field(
         default="No Description Set", converter=dis_snek.LocalisedDesc.converter
@@ -68,11 +71,10 @@ class ParamInfo:
     channel_types: list[dis_snek.ChannelTypes | int] | None = attrs.field(default=None)
     min_value: float = attrs.field(default=None)
     max_value: float = attrs.field(default=None)
-    autocomplete_function: typing.Callable = attrs.field(default=None)
 
     _option_type: dis_snek.Absent[dis_snek.OptionTypes] = attrs.field(
         default=dis_snek.Missing
-    )
+    )  # type: ignore
 
     @type.validator  # type: ignore
     def _type_validator(self, attribute: str, value: dis_snek.OptionTypes) -> None:
@@ -81,8 +83,8 @@ class ParamInfo:
             dis_snek.OptionTypes.SUB_COMMAND_GROUP,
         ]:
             raise ValueError(
-                "Options cannot be SUB_COMMAND or SUB_COMMAND_GROUP. If you want to use"
-                " subcommands, see the @sub_command() decorator."
+                "Options cannot be SUB_COMMAND or SUB_COMMAND_GROUP. If you want to"
+                " use subcommands, see the @sub_command() decorator."
             )
 
     @channel_types.validator  # type: ignore
@@ -142,7 +144,7 @@ class ParamInfo:
 
     def __attrs_post_init__(self):
         if self.type:
-            self._option_type = _get_option(self.type)
+            self._option_type = get_option(self.type)
         elif self.converter:
             self._option_type = dis_snek.OptionTypes.STRING
 
@@ -152,12 +154,41 @@ class ParamInfo:
     def generate_option(self) -> dis_snek.SlashCommandOption:
         return dis_snek.SlashCommandOption(
             name=self.name,
-            type=self._option_type,
+            type=self._option_type,  # type: ignore
             description=self.description,
             required=self.required,
-            autocomplete=bool(self.autocomplete_function),
+            autocomplete=bool(self.autocomplete),
             choices=self.choices,
             channel_types=self.channel_types,
             min_value=self.min_value,
             max_value=self.max_value,
         )
+
+
+def Param(
+    *,
+    name: dis_snek.LocalisedName | str,
+    type: "typing.Optional[dis_snek.OptionTypes | type]",
+    converter: typing.Optional[dis_snek.Converter],
+    default: typing.Any,
+    description: dis_snek.LocalisedDesc | str,
+    required: bool,
+    autocomplete: typing.Callable,
+    choices: list[dis_snek.SlashCommandChoice | dict,],
+    channel_types: list[dis_snek.ChannelTypes | int],
+    min_value: float,
+    max_value: float,
+) -> typing.Any:
+    return ParamInfo(
+        name=name,
+        type=type,
+        converter=converter,
+        default=default,
+        description=description,
+        required=required,
+        autocomplete=autocomplete,
+        choices=choices,
+        channel_types=channel_types,
+        min_value=min_value,
+        max_value=max_value,
+    )
