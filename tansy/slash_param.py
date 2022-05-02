@@ -61,7 +61,7 @@ class ParamInfo:
     converter: typing.Optional[dis_snek.Converter] = attrs.field(
         default=None, converter=_converter_converter
     )  # type: ignore
-    default: typing.Any = attrs.field(default=dis_snek.Missing)
+    default: typing.Any = attrs.field(default=dis_snek.MISSING)
     description: dis_snek.LocalisedDesc = attrs.field(
         default="No Description Set", converter=dis_snek.LocalisedDesc.converter
     )
@@ -73,7 +73,7 @@ class ParamInfo:
     max_value: float = attrs.field(default=None)
 
     _option_type: dis_snek.Absent[dis_snek.OptionTypes] = attrs.field(
-        default=dis_snek.Missing
+        default=dis_snek.MISSING
     )  # type: ignore
 
     @type.validator  # type: ignore
@@ -148,7 +148,7 @@ class ParamInfo:
         elif self.converter:
             self._option_type = dis_snek.OptionTypes.STRING
 
-        if self.default:
+        if self.default is not dis_snek.MISSING:
             self.required = False
 
     def generate_option(self) -> dis_snek.SlashCommandOption:

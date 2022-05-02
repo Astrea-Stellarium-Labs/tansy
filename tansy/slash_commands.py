@@ -140,7 +140,7 @@ class TansySlashCommand(dis_snek.SlashCommand):
             self.options = []
 
             params = dis_snek.utils.get_parameters(self.callback)
-            for name, param in params.items():
+            for name, param in list(params.items())[1:]:
                 cmd_param = TansySlashCommandParameter()
 
                 if isinstance(param.default, slash_param.ParamInfo):
@@ -151,6 +151,9 @@ class TansySlashCommand(dis_snek.SlashCommand):
 
                 cmd_param.name = option.name.default or name
                 option.name = cmd_param.name
+
+                if option.type == dis_snek.MISSING:
+                    option.type = slash_param.get_option(param.annotation)
 
                 if (
                     isinstance(param.default, slash_param.ParamInfo)
