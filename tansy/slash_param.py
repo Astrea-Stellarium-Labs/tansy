@@ -43,8 +43,8 @@ def get_option(t: dis_snek.OptionTypes | type):
 
 
 def _converter_converter(value: typing.Any):
-    if value is inspect._empty:
-        return dis_snek.Missing
+    if value is None:
+        return None
 
     if isinstance(value, dis_snek.Converter):
         return value
@@ -158,7 +158,7 @@ class ParamInfo:
             description=self.description,
             required=self.required,
             autocomplete=bool(self.autocomplete),
-            choices=self.choices,
+            choices=self.choices or [],
             channel_types=self.channel_types,
             min_value=self.min_value,
             max_value=self.max_value,
@@ -167,17 +167,17 @@ class ParamInfo:
 
 def Param(
     *,
-    name: dis_snek.LocalisedName | str,
-    type: "typing.Optional[dis_snek.OptionTypes | type]",
-    converter: typing.Optional[dis_snek.Converter],
-    default: typing.Any,
-    description: dis_snek.LocalisedDesc | str,
-    required: bool,
-    autocomplete: typing.Callable,
-    choices: list[dis_snek.SlashCommandChoice | dict,],
-    channel_types: list[dis_snek.ChannelTypes | int],
-    min_value: float,
-    max_value: float,
+    name: dis_snek.LocalisedName | str = None,
+    type: "typing.Optional[dis_snek.OptionTypes | type]" = None,
+    converter: typing.Optional[dis_snek.Converter] = None,
+    default: typing.Any = dis_snek.MISSING,
+    description: dis_snek.LocalisedDesc | str = "No Description Set",
+    required: bool = True,
+    autocomplete: typing.Callable = None,
+    choices: list[dis_snek.SlashCommandChoice | dict,] = None,
+    channel_types: list[dis_snek.ChannelTypes | int] = None,
+    min_value: float = None,
+    max_value: float = None,
 ) -> typing.Any:
     return ParamInfo(
         name=name,
