@@ -18,21 +18,21 @@ def get_option(t: naff.OptionTypes | type):
     if isinstance(t, naff.OptionTypes):
         return t
 
-    if issubclass(t, str):
+    if t == str:
         return naff.OptionTypes.STRING
-    if issubclass(t, int):
+    if t == int:
         return naff.OptionTypes.INTEGER
-    if issubclass(t, bool):
+    if t == bool:
         return naff.OptionTypes.BOOLEAN
     if issubclass(t, naff.BaseUser):
         return naff.OptionTypes.USER
     if issubclass(t, naff.BaseChannel):
         return naff.OptionTypes.CHANNEL
-    if issubclass(t, naff.Role):
+    if t == naff.Role:
         return naff.OptionTypes.ROLE
-    if issubclass(t, float):
+    if t == float:
         return naff.OptionTypes.NUMBER
-    if issubclass(t, naff.Attachment):
+    if t == naff.Attachment:
         return naff.OptionTypes.ATTACHMENT
 
     if typing.get_origin(t) in {typing.Union, types.UnionType}:
