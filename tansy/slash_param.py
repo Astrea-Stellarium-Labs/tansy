@@ -1,4 +1,3 @@
-import inspect
 import types
 import typing
 
@@ -48,16 +47,6 @@ def get_option(t: naff.OptionTypes | type):
     raise ValueError("Invalid type provided.")
 
 
-def _converter_converter(value: typing.Any):
-    if value is None:
-        return None
-
-    if isinstance(value, naff.Converter):
-        return value
-    else:
-        raise ValueError(f"{repr(value)} is not a valid converter.")
-
-
 @attrs.define(kw_only=True)
 class ParamInfo:
     name: naff.LocalisedName | str | None = attrs.field(
@@ -67,9 +56,9 @@ class ParamInfo:
         default="No Description Set", converter=naff.LocalisedDesc.converter
     )
     type: "naff.OptionTypes | None" = attrs.field(default=None)
-    converter: typing.Optional[naff.Converter] = attrs.field(
-        default=None, converter=_converter_converter
-    )  # type: ignore
+    converter: typing.Optional[naff.Converter | typing.Callable] = attrs.field(
+        default=None,
+    )
     default: typing.Any = attrs.field(default=naff.MISSING)
     required: bool = attrs.field(default=True)
     autocomplete: bool = attrs.field(default=False)
@@ -219,7 +208,7 @@ def Param(
     name: naff.LocalisedName | str | None = None,
     description: naff.LocalisedDesc | str = "No Description Set",
     type: "typing.Optional[naff.OptionTypes | type]" = None,
-    converter: typing.Optional[naff.Converter] = None,
+    converter: typing.Optional[naff.Converter | typing.Callable] = None,
     default: typing.Any = naff.MISSING,
     required: bool = True,
     autocomplete: bool = False,

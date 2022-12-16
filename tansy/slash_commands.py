@@ -126,9 +126,13 @@ class TansySlashCommand(naff.SlashCommand):
                     cmd_param.default = naff.MISSING
 
                 if param_info and param_info.converter:
-                    cmd_param.converter = naff.BaseCommand._get_converter_function(
-                        param_info.converter, param.name
-                    )
+                    if convert_func := _get_converter(param_info.converter, param.name):
+                        cmd_param.converter = convert_func
+                    else:
+                        raise ValueError(
+                            f"The converter for {param.name} is invalid. Please make"
+                            " sure it is either a Converter-like class or a function."
+                        )
                 elif converter := _get_converter(param.annotation, param.name):
                     cmd_param.converter = converter
 
