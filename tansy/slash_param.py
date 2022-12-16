@@ -203,7 +203,7 @@ class ParamInfo:
         )
 
 
-def Option(
+def Param(
     *,
     name: naff.LocalisedName | str | None = None,
     description: naff.LocalisedDesc | str = "No Description Set",
@@ -234,3 +234,6 @@ def Option(
         min_length=min_length,
         max_length=max_length,
     )
+
+
+Option = Param

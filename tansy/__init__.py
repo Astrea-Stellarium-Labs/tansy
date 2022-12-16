@@ -10,3 +10,12 @@ __version__ = "0.1.0"
 
 from .slash_commands import *
 from .slash_param import *
+
+__all__ = (
+    "TansySlashCommandParameter",
+    "TansySlashCommand",
+    "slash_command",
+    "ParamInfo",
+    "Param",
+    "Option",
+)
