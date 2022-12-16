@@ -27,7 +27,7 @@ def _get_converter(anno: type, name: str):
 
     if isinstance(anno, naff.Converter):
         return naff.BaseCommand._get_converter_function(anno, name)
-    elif inspect.isfunction(anno):
+    elif inspect.isroutine(anno):
         num_params = len(inspect.signature(anno).parameters.values())
         match num_params:
             case 2:
