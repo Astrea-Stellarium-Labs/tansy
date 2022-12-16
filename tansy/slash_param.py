@@ -13,33 +13,33 @@ def get_option(t: naff.OptionTypes | type):
     if isinstance(t, naff.OptionTypes):
         return t
 
-    if isinstance(t, str):
+    if issubclass(t, str):
         return naff.OptionTypes.STRING
-    if isinstance(t, int):
+    if issubclass(t, int):
         return naff.OptionTypes.INTEGER
-    if isinstance(t, bool):
+    if issubclass(t, bool):
         return naff.OptionTypes.BOOLEAN
-    if isinstance(t, naff.BaseUser):
+    if issubclass(t, naff.BaseUser):
         return naff.OptionTypes.USER
-    if isinstance(t, naff.BaseChannel):
+    if issubclass(t, naff.BaseChannel):
         return naff.OptionTypes.CHANNEL
-    if isinstance(t, naff.Role):
+    if issubclass(t, naff.Role):
         return naff.OptionTypes.ROLE
-    if isinstance(t, float):
+    if issubclass(t, float):
         return naff.OptionTypes.NUMBER
-    if isinstance(t, naff.Attachment):
+    if issubclass(t, naff.Attachment):
         return naff.OptionTypes.ATTACHMENT
 
     if typing.get_origin(t) in {typing.Union, types.UnionType}:
         args = typing.get_args(t)
         if (
             len(args) in {2, 3}
-            and isinstance(args[0], (naff.BaseUser, naff.BaseChannel))
-            and isinstance(args[1], (naff.BaseUser, naff.BaseChannel))
+            and issubclass(args[0], (naff.BaseUser, naff.BaseChannel))
+            and issubclass(args[1], (naff.BaseUser, naff.BaseChannel))
         ):
             return naff.OptionTypes.MENTIONABLE
 
-    return naff.OptionTypes.STRING
+    raise ValueError("Invalid type provided.")
 
 
 def _converter_converter(value: typing.Any):
@@ -54,27 +54,32 @@ def _converter_converter(value: typing.Any):
 
 @attrs.define(kw_only=True)
 class ParamInfo:
-    name: naff.LocalisedName = attrs.field(
+    name: naff.LocalisedName | str | None = attrs.field(
         default=None, converter=naff.LocalisedName.converter
     )
-    type: "typing.Optional[naff.OptionTypes | type]" = attrs.field(default=None)
+    description: naff.LocalisedDesc | str = attrs.field(
+        default="No Description Set", converter=naff.LocalisedDesc.converter
+    )
+    type: "naff.OptionTypes | None" = attrs.field(default=None)
     converter: typing.Optional[naff.Converter] = attrs.field(
         default=None, converter=_converter_converter
     )  # type: ignore
     default: typing.Any = attrs.field(default=naff.MISSING)
-    description: naff.LocalisedDesc = attrs.field(
-        default="No Description Set", converter=naff.LocalisedDesc.converter
-    )
     required: bool = attrs.field(default=True)
-    autocomplete: typing.Callable = attrs.field(default=None)
+    autocomplete: bool = attrs.field(default=False)
     choices: list[naff.SlashCommandChoice | dict] = attrs.field(factory=list)
     channel_types: list[naff.ChannelTypes | int] | None = attrs.field(default=None)
-    min_value: float = attrs.field(default=None)
-    max_value: float = attrs.field(default=None)
+    min_value: typing.Optional[float] = attrs.field(default=None)
+    max_value: typing.Optional[float] = attrs.field(default=None)
+    min_length: typing.Optional[int] = attrs.field(repr=False, default=None)
+    max_length: typing.Optional[int] = attrs.field(repr=False, default=None)
 
-    _option_type: naff.Absent[naff.OptionTypes] = attrs.field(
-        default=naff.MISSING
-    )  # type: ignore
+    def __attrs_post_init__(self):
+        if self.converter and self.type is None:
+            self._option_type = naff.OptionTypes.STRING
+
+        if self.default is not naff.MISSING:
+            self.required = False
 
     @type.validator  # type: ignore
     def _type_validator(self, attribute: str, value: naff.OptionTypes) -> None:
@@ -142,53 +147,90 @@ class ParamInfo:
             if self.max_value and self.min_value and self.max_value < self.min_value:
                 raise ValueError("`min_value` needs to be <= than `max_value`")
 
-    def __attrs_post_init__(self):
-        if self.type:
-            self._option_type = get_option(self.type)
-        elif self.converter:
-            self._option_type = naff.OptionTypes.STRING
+    @min_length.validator
+    def _min_length_validator(
+        self, attribute: str, value: typing.Optional[int]
+    ) -> None:
+        if value is not None:
+            if self.type != naff.OptionTypes.STRING:
+                raise ValueError(
+                    "`min_length` can only be supplied with string options"
+                )
 
-        if self.default is not naff.MISSING:
-            self.required = False
+            if (
+                self.max_length is not None
+                and self.min_length is not None
+                and self.max_length < self.min_length
+            ):
+                raise ValueError("`min_length` needs to be <= than `max_length`")
+
+            if self.min_length < 0:
+                raise ValueError("`min_length` needs to be >= 0")
+
+    @max_length.validator
+    def _max_length_validator(
+        self, attribute: str, value: typing.Optional[int]
+    ) -> None:
+        if value is not None:
+            if self.type != naff.OptionTypes.STRING:
+                raise ValueError(
+                    "`max_length` can only be supplied with string options"
+                )
+
+            if (
+                self.min_length is not None
+                and self.max_length is not None
+                and self.max_length < self.min_length
+            ):
+                raise ValueError("`min_length` needs to be <= than `max_length`")
+
+            if self.max_length < 1:
+                raise ValueError("`max_length` needs to be >= 1")
 
     def generate_option(self) -> naff.SlashCommandOption:
         return naff.SlashCommandOption(
             name=self.name,
-            type=self._option_type,  # type: ignore
+            type=self.type,
             description=self.description,
             required=self.required,
-            autocomplete=bool(self.autocomplete),
+            autocomplete=self.autocomplete,
             choices=self.choices or [],
             channel_types=self.channel_types,
             min_value=self.min_value,
             max_value=self.max_value,
+            min_length=self.min_length,
+            max_length=self.max_length,
         )
 
 
-def Param(
+def Option(
     *,
-    name: naff.LocalisedName | str = None,
+    name: naff.LocalisedName | str | None = None,
+    description: naff.LocalisedDesc | str = "No Description Set",
     type: "typing.Optional[naff.OptionTypes | type]" = None,
     converter: typing.Optional[naff.Converter] = None,
     default: typing.Any = naff.MISSING,
-    description: naff.LocalisedDesc | str = "No Description Set",
     required: bool = True,
-    autocomplete: typing.Callable = None,
-    choices: list[naff.SlashCommandChoice | dict,] = None,
-    channel_types: list[naff.ChannelTypes | int] = None,
-    min_value: float = None,
-    max_value: float = None,
+    autocomplete: bool = False,
+    choices: list[naff.SlashCommandChoice | dict] | None = None,
+    channel_types: list[naff.ChannelTypes | int] | None = None,
+    min_value: float | None = None,
+    max_value: float | None = None,
+    min_length: int | None = None,
+    max_length: int | None = None,
 ) -> typing.Any:
     return ParamInfo(
         name=name,
-        type=type,
+        type=get_option(type) if type is not None else type,
         converter=converter,
         default=default,
         description=description,
         required=required,
         autocomplete=autocomplete,
-        choices=choices,
+        choices=choices or [],
         channel_types=channel_types,
         min_value=min_value,
         max_value=max_value,
+        min_length=min_length,
+        max_length=max_length,
     )

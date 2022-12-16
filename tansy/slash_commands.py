@@ -1,21 +1,11 @@
+import functools
 import inspect
-import types
 import typing
 
 import attrs
 import naff
 
 from . import slash_param
-
-
-def _convert_to_bool(argument: str) -> bool:
-    lowered = argument.lower()
-    if lowered in {"yes", "y", "true", "t", "1", "enable", "on"}:
-        return True
-    elif lowered in {"no", "n", "false", "f", "0", "disable", "off"}:
-        return False
-    else:
-        raise naff.errors.BadArgument(f"{argument} is not a recognised boolean option.")
 
 
 def _get_from_anno_type(anno: typing.Annotated) -> typing.Any:
@@ -52,7 +42,7 @@ def _get_converter_function(
     return actual_anno.convert
 
 
-def _get_converter(anno: type, name: str) -> typing.Callable[[naff.InteractionContext, str], typing.Any]:  # type: ignore
+def _get_converter(anno: type, name: str):
     if typing.get_origin(anno) == typing.Annotated:
         anno = _get_from_anno_type(anno)
 
@@ -72,42 +62,8 @@ def _get_converter(anno: type, name: str) -> typing.Callable[[naff.InteractionCo
                     f"{naff.utils.get_object_name(anno)} for {name} has more than 2"
                     " arguments, which is unsupported."
                 )
-    elif anno == bool:
-        return lambda ctx, arg: _convert_to_bool(arg)
-    elif anno == inspect._empty:
-        return lambda ctx, arg: str(arg)
     else:
-        return lambda ctx, arg: anno(arg)
-
-
-async def _convert(
-    param: "TansySlashCommandParameter",
-    ctx: naff.InteractionContext,
-    arg: typing.Any,
-) -> typing.Any:
-    converted = naff.MISSING
-    for converter in param.converters:
-        try:
-            converted = await naff.utils.maybe_coroutine(converter, ctx, arg)
-            break
-        except Exception as e:
-            if not param.union and not param.optional:
-                if isinstance(e, naff.errors.BadArgument):
-                    raise
-                raise naff.errors.BadArgument(str(e)) from e
-
-    if converted == naff.MISSING:
-        if param.optional:
-            converted = param.default
-        else:
-            union_types = typing.get_args(param.type)
-            union_names = tuple(naff.utils.get_object_name(t) for t in union_types)
-            union_types_str = ", ".join(union_names[:-1]) + f", or {union_names[-1]}"
-            raise naff.errors.BadArgument(
-                f'Could not convert "{arg}" into {union_types_str}.'
-            )
-
-    return converted
+        return None
 
 
 @attrs.define(slots=True)
@@ -115,12 +71,10 @@ class TansySlashCommandParameter:
     """An object representing parameters in a command."""
 
     name: str = attrs.field(default=None)
-    default: typing.Optional[typing.Any] = attrs.field(default=None)
+    argument_name: str = attrs.field(default=None)
+    default: naff.Absent[typing.Any] = attrs.field(default=naff.MISSING)
     type: typing.Type = attrs.field(default=None)
-    converters: list[
-        typing.Callable[[naff.InteractionContext, typing.Any], typing.Any]
-    ] = attrs.field(factory=list)
-    union: bool = attrs.field(default=False)
+    converter: typing.Optional[typing.Callable] = attrs.field(default=None)
 
     @property
     def optional(self) -> bool:
@@ -137,62 +91,73 @@ class TansySlashCommand(naff.SlashCommand):
         if self.callback is not None:
             self.options = []
 
-            params = naff.utils.get_parameters(self.callback)
-            for name, param in list(params.items())[1:]:
-                cmd_param = TansySlashCommandParameter()
+            # qualname hack, oh how i've not missed you
+            if "." in self.callback.__qualname__:
+                callback = functools.partial(self.callback, None, None)
+            else:
+                callback = functools.partial(self.callback, None)
 
-                if isinstance(param.default, slash_param.ParamInfo):
-                    option = param.default.generate_option()
+            params = naff.utils.get_parameters(callback)
+            for name, param in list(params.items()):
+                if param.kind not in [
+                    param.POSITIONAL_OR_KEYWORD,
+                    param.KEYWORD_ONLY,
+                ]:
+                    raise ValueError(
+                        "All parameters must be able to be used via keyword arguments."
+                    )
+
+                cmd_param = TansySlashCommandParameter()
+                param_info = (
+                    param.default
+                    if isinstance(param.default, slash_param.ParamInfo)
+                    else None
+                )
+
+                if param_info:
+                    option = param_info.generate_option()
                 else:
-                    option_type = slash_param.get_option(param.annotation)
+                    try:
+                        option_type = slash_param.get_option(param.annotation)
+                    except ValueError:
+                        raise ValueError(
+                            f"Invalid/no provided type for {name}"
+                        ) from None
                     option = naff.SlashCommandOption(name=name, type=option_type)
 
-                cmd_param.name = option.name.default or name
-                option.name = cmd_param.name
+                cmd_param.name = str(option.name) if option.name else name
+                cmd_param.argument_name = name
+                option.name = option.name or naff.LocalisedName.converter(
+                    cmd_param.name
+                )
 
-                if option.type == naff.MISSING:
-                    option.type = slash_param.get_option(param.annotation)
+                if option.type is None:
+                    try:
+                        option.type = slash_param.get_option(param.annotation)
+                    except ValueError:
+                        raise ValueError(
+                            f"Invalid/no provided type for {name}"
+                        ) from None
 
-                if (
-                    isinstance(param.default, slash_param.ParamInfo)
-                    and param.default.default is not naff.MISSING
-                ):
-                    cmd_param.default = param.default.default
+                if param_info:
+                    cmd_param.default = param_info.default
                 elif param.default is not param.empty:
                     cmd_param.default = param.default
                 else:
                     cmd_param.default = naff.MISSING
 
-                if option.type == naff.OptionTypes.STRING:
-                    if (
-                        isinstance(param.default, slash_param.ParamInfo)
-                        and param.default.converter
-                    ):
-                        cmd_param.type = anno = param.default.converter
-                    else:
-                        cmd_param.type = anno = param.annotation
-
-                    anno: type
-
-                    if typing.get_origin(anno) in {typing.Union, types.UnionType}:
-                        cmd_param.union = True
-                        for arg in typing.get_args(anno):
-                            if arg != types.NoneType:
-                                converter = _get_converter(arg, name)
-                                cmd_param.converters.append(converter)
-                            elif not cmd_param.optional:  # d.py-like behavior
-                                cmd_param.default = None
-                    else:
-                        converter = _get_converter(anno, name)
-                        cmd_param.converters.append(converter)
-                else:
-                    cmd_param.converters = [lambda ctx, arg: arg]
+                if param_info and param_info.converter:
+                    cmd_param.converter = _get_converter_function(
+                        param_info.converter, param.name
+                    )
+                elif converter := _get_converter(param.annotation, param.name):
+                    cmd_param.converter = converter
 
                 self.options.append(option)
-                self.parameters[name] = cmd_param
+                self.parameters[cmd_param.name] = cmd_param
 
-            if hasattr(self.callback, "permissions"):
-                self.permissions = self.callback.permissions
+            if hasattr(self.callback, "auto_defer"):
+                self.auto_defer = self.callback.auto_defer
         naff.BaseCommand.__attrs_post_init__(self)
 
     async def call_callback(
@@ -211,16 +176,21 @@ class TansySlashCommand(naff.SlashCommand):
 
         for key, value in ctx.kwargs.items():
             param = self.parameters[key]
-            converted = await _convert(param, ctx, value)
-            new_kwargs[key] = converted
+            if param.converter:
+                converted = await naff.utils.maybe_coroutine(
+                    param.converter, ctx, value
+                )
+            else:
+                converted = value
+            new_kwargs[param.argument_name] = converted
 
         not_found_param = tuple(
-            (k, v) for k, v in self.parameters.items() if k not in new_kwargs
+            v for v in self.parameters.values() if v.argument_name not in new_kwargs
         )
-        for key, value in not_found_param:
-            new_kwargs[key] = value.default
+        for value in not_found_param:
+            new_kwargs[value.argument_name] = value.default
 
-        return await callback(ctx, *new_kwargs)
+        return await callback(ctx, **new_kwargs)
 
 
 def slash_command(
@@ -228,9 +198,6 @@ def slash_command(
     *,
     description: naff.Absent[str | naff.LocalisedDesc] = naff.MISSING,
     scopes: naff.Absent[typing.List["naff.Snowflake_Type"]] = naff.MISSING,
-    options: typing.Optional[
-        typing.List[typing.Union[naff.SlashCommandOption, typing.Dict]]
-    ] = None,
     default_member_permissions: typing.Optional["naff.Permissions"] = None,
     dm_permission: bool = True,
     sub_cmd_name: str | naff.LocalisedName = None,
@@ -249,15 +216,15 @@ def slash_command(
         name: 1-32 character name of the command
         description: 1-100 character description of the command
         scopes: The scope this command exists within
-        options: The parameters for the command, max 25
         default_member_permissions: What permissions members need to have by default to use this command.
         dm_permission: Should this command be available in DMs.
         sub_cmd_name: 1-32 character name of the subcommand
         sub_cmd_description: 1-100 character description of the subcommand
         group_name: 1-32 character name of the group
         group_description: 1-100 character description of the group
+        nsfw: This command should only work in NSFW channels
     Returns:
-        SlashCommand Object
+        TansySlashCommand Object
     """
 
     def wrapper(func: typing.Callable[..., typing.Coroutine]) -> TansySlashCommand:
@@ -287,7 +254,6 @@ def slash_command(
             dm_permission=dm_permission,
             nsfw=nsfw,
             callback=func,
-            options=options,
         )
 
     return wrapper
