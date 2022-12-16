@@ -76,7 +76,7 @@ class ParamInfo:
 
     def __attrs_post_init__(self):
         if self.converter and self.type is None:
-            self._option_type = naff.OptionTypes.STRING
+            self.type = naff.OptionTypes.STRING
 
         if self.default is not naff.MISSING:
             self.required = False
