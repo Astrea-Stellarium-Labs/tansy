@@ -41,6 +41,7 @@ def get_option(t: naff.OptionTypes | type):
             len(args) in {2, 3}
             and issubclass(args[0], (naff.BaseUser, naff.BaseChannel))
             and issubclass(args[1], (naff.BaseUser, naff.BaseChannel))
+            and args[0] != args[1]
         ):
             return naff.OptionTypes.MENTIONABLE
 
