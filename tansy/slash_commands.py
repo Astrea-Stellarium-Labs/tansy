@@ -1,3 +1,4 @@
+import asyncio
 import functools
 import inspect
 import typing
@@ -191,6 +192,52 @@ class TansySlashCommand(naff.SlashCommand):
             new_kwargs[value.argument_name] = value.default
 
         return await callback(ctx, **new_kwargs)
+
+    def group(
+        self, name: str = None, description: str = "No Description Set"
+    ) -> "TansySlashCommand":
+        return TansySlashCommand(
+            name=self.name,
+            description=self.description,
+            group_name=name,
+            group_description=description,
+            scopes=self.scopes,
+        )
+
+    def subcommand(
+        self,
+        sub_cmd_name: naff.LocalisedName | str,
+        group_name: naff.LocalisedName | str = None,
+        sub_cmd_description: naff.Absent[naff.LocalisedDesc | str] = naff.MISSING,
+        group_description: naff.Absent[naff.LocalisedDesc | str] = naff.MISSING,
+        nsfw: bool = False,
+    ) -> typing.Callable[..., "TansySlashCommand"]:
+        def wrapper(
+            call: typing.Callable[..., typing.Coroutine]
+        ) -> "TansySlashCommand":
+            nonlocal sub_cmd_description
+
+            if not asyncio.iscoroutinefunction(call):
+                raise TypeError("Subcommand must be coroutine")
+
+            if sub_cmd_description is naff.MISSING:
+                sub_cmd_description = call.__doc__ or "No Description Set"
+
+            return TansySlashCommand(
+                name=self.name,
+                description=self.description,
+                group_name=group_name or self.group_name,
+                group_description=group_description or self.group_description,
+                sub_cmd_name=sub_cmd_name,
+                sub_cmd_description=sub_cmd_description,
+                default_member_permissions=self.default_member_permissions,
+                dm_permission=self.dm_permission,
+                callback=call,
+                scopes=self.scopes,
+                nsfw=nsfw,
+            )
+
+        return wrapper
 
 
 def slash_command(
