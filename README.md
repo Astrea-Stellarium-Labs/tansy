@@ -1,2 +1,2 @@
 # tansy
-Unstable experiments with Dis-Snek/NAFF.
+Unstable experiments with NAFF.

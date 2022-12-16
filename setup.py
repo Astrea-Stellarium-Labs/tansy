@@ -9,7 +9,7 @@ with open("requirements.txt") as f:
 
 setup(
     name="tansy",
-    description="Unstable experiments with Dis-Snek/NAFF.",
+    description="Unstable experiments with NAFF.",
     long_description=(Path(__file__).parent / "README.md").read_text(),
     long_description_content_type="text/markdown",
     author="Astrea49",

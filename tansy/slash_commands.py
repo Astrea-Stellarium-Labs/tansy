@@ -3,7 +3,7 @@ import types
 import typing
 
 import attrs
-import dis_snek
+import naff
 
 from . import slash_param
 
@@ -15,7 +15,7 @@ def _convert_to_bool(argument: str) -> bool:
     elif lowered in {"no", "n", "false", "f", "0", "disable", "off"}:
         return False
     else:
-        raise dis_snek.errors.BadArgument(
+        raise naff.errors.BadArgument(
             f"{argument} is not a recognised boolean option."
         )
 
@@ -33,32 +33,32 @@ def _get_from_anno_type(anno: typing.Annotated) -> typing.Any:
 
 
 def _get_converter_function(
-    anno: type[dis_snek.Converter] | dis_snek.Converter, name: str
-) -> typing.Callable[[dis_snek.InteractionContext, str], typing.Any]:
+    anno: type[naff.Converter] | naff.Converter, name: str
+) -> typing.Callable[[naff.InteractionContext, str], typing.Any]:
     num_params = len(inspect.signature(anno.convert).parameters.values())
 
     # if we have three parameters for the function, it's likely it has a self parameter
     # so we need to get rid of it by initing - typehinting hates this, btw!
     # the below line will error out if we aren't supposed to init it, so that works out
-    actual_anno: dis_snek.Converter = anno() if num_params == 3 else anno  # type: ignore
+    actual_anno: naff.Converter = anno() if num_params == 3 else anno  # type: ignore
     # we can only get to this point while having three params if we successfully inited
     if num_params == 3:
         num_params -= 1
 
     if num_params != 2:
         ValueError(
-            f"{dis_snek.utils.get_object_name(anno)} for {name} is invalid: converters"
+            f"{naff.utils.get_object_name(anno)} for {name} is invalid: converters"
             " must have exactly 2 arguments."
         )
 
     return actual_anno.convert
 
 
-def _get_converter(anno: type, name: str) -> typing.Callable[[dis_snek.InteractionContext, str], typing.Any]:  # type: ignore
+def _get_converter(anno: type, name: str) -> typing.Callable[[naff.InteractionContext, str], typing.Any]:  # type: ignore
     if typing.get_origin(anno) == typing.Annotated:
         anno = _get_from_anno_type(anno)
 
-    if isinstance(anno, dis_snek.Converter):
+    if isinstance(anno, naff.Converter):
         return _get_converter_function(anno, name)
     elif inspect.isfunction(anno):
         num_params = len(inspect.signature(anno).parameters.values())
@@ -71,7 +71,7 @@ def _get_converter(anno: type, name: str) -> typing.Callable[[dis_snek.Interacti
                 return lambda ctx, arg: anno()
             case _:
                 ValueError(
-                    f"{dis_snek.utils.get_object_name(anno)} for {name} has more than 2"
+                    f"{naff.utils.get_object_name(anno)} for {name} has more than 2"
                     " arguments, which is unsupported."
                 )
     elif anno == bool:
@@ -84,28 +84,28 @@ def _get_converter(anno: type, name: str) -> typing.Callable[[dis_snek.Interacti
 
 async def _convert(
     param: "TansySlashCommandParameter",
-    ctx: dis_snek.InteractionContext,
+    ctx: naff.InteractionContext,
     arg: typing.Any,
 ) -> typing.Any:
-    converted = dis_snek.MISSING
+    converted = naff.MISSING
     for converter in param.converters:
         try:
-            converted = await dis_snek.utils.maybe_coroutine(converter, ctx, arg)
+            converted = await naff.utils.maybe_coroutine(converter, ctx, arg)
             break
         except Exception as e:
             if not param.union and not param.optional:
-                if isinstance(e, dis_snek.errors.BadArgument):
+                if isinstance(e, naff.errors.BadArgument):
                     raise
-                raise dis_snek.errors.BadArgument(str(e)) from e
+                raise naff.errors.BadArgument(str(e)) from e
 
-    if converted == dis_snek.MISSING:
+    if converted == naff.MISSING:
         if param.optional:
             converted = param.default
         else:
             union_types = typing.get_args(param.type)
-            union_names = tuple(dis_snek.utils.get_object_name(t) for t in union_types)
+            union_names = tuple(naff.utils.get_object_name(t) for t in union_types)
             union_types_str = ", ".join(union_names[:-1]) + f", or {union_names[-1]}"
-            raise dis_snek.errors.BadArgument(
+            raise naff.errors.BadArgument(
                 f'Could not convert "{arg}" into {union_types_str}.'
             )
 
@@ -118,28 +118,28 @@ class TansySlashCommandParameter:
 
     name: str = attrs.field(default=None)
     default: typing.Optional[typing.Any] = attrs.field(default=None)
-    type: type = attrs.field(default=None)
+    type: typing.Type = attrs.field(default=None)
     converters: list[
-        typing.Callable[[dis_snek.InteractionContext, typing.Any], typing.Any]
+        typing.Callable[[naff.InteractionContext, typing.Any], typing.Any]
     ] = attrs.field(factory=list)
     union: bool = attrs.field(default=False)
 
     @property
     def optional(self) -> bool:
-        return self.default != dis_snek.MISSING
+        return self.default != naff.MISSING
 
 
-@dis_snek.utils.define()
-class TansySlashCommand(dis_snek.SlashCommand):
+@naff.utils.define()
+class TansySlashCommand(naff.SlashCommand):
     parameters: dict[str, TansySlashCommandParameter] = attrs.field(
-        factory=dict, metadata=dis_snek.utils.no_export_meta
+        factory=dict, metadata=naff.utils.no_export_meta
     )
 
     def __attrs_post_init__(self) -> None:
         if self.callback is not None:
             self.options = []
 
-            params = dis_snek.utils.get_parameters(self.callback)
+            params = naff.utils.get_parameters(self.callback)
             for name, param in list(params.items())[1:]:
                 cmd_param = TansySlashCommandParameter()
 
@@ -147,25 +147,25 @@ class TansySlashCommand(dis_snek.SlashCommand):
                     option = param.default.generate_option()
                 else:
                     option_type = slash_param.get_option(param.annotation)
-                    option = dis_snek.SlashCommandOption(name=name, type=option_type)
+                    option = naff.SlashCommandOption(name=name, type=option_type)
 
                 cmd_param.name = option.name.default or name
                 option.name = cmd_param.name
 
-                if option.type == dis_snek.MISSING:
+                if option.type == naff.MISSING:
                     option.type = slash_param.get_option(param.annotation)
 
                 if (
                     isinstance(param.default, slash_param.ParamInfo)
-                    and param.default.default is not dis_snek.MISSING
+                    and param.default.default is not naff.MISSING
                 ):
                     cmd_param.default = param.default.default
                 elif param.default is not param.empty:
                     cmd_param.default = param.default
                 else:
-                    cmd_param.default = dis_snek.MISSING
+                    cmd_param.default = naff.MISSING
 
-                if option.type == dis_snek.OptionTypes.STRING:
+                if option.type == naff.OptionTypes.STRING:
                     if (
                         isinstance(param.default, slash_param.ParamInfo)
                         and param.default.converter
@@ -195,16 +195,16 @@ class TansySlashCommand(dis_snek.SlashCommand):
 
             if hasattr(self.callback, "permissions"):
                 self.permissions = self.callback.permissions
-        dis_snek.BaseCommand.__attrs_post_init__(self)
+        naff.BaseCommand.__attrs_post_init__(self)
 
     async def call_callback(
-        self, callback: typing.Callable, ctx: dis_snek.InteractionContext
+        self, callback: typing.Callable, ctx: naff.InteractionContext
     ) -> None:
         """
         Runs the callback of this command.
         Args:
-            callback (Callable: The callback to run. This is provided for compatibility with dis_snek.
-            ctx (dis_snek.InteractionContext): The context to use for this command.
+            callback (Callable: The callback to run. This is provided for compatibility with naff.
+            ctx (naff.InteractionContext): The context to use for this command.
         """
         if len(self.parameters) == 0:
             return await callback(ctx)
@@ -226,19 +226,20 @@ class TansySlashCommand(dis_snek.SlashCommand):
 
 
 def slash_command(
-    name: str | dis_snek.LocalisedName,
+    name: str | naff.LocalisedName,
     *,
-    description: dis_snek.Absent[str | dis_snek.LocalisedDesc] = dis_snek.MISSING,
-    scopes: dis_snek.Absent[typing.List["dis_snek.Snowflake_Type"]] = dis_snek.MISSING,
+    description: naff.Absent[str | naff.LocalisedDesc] = naff.MISSING,
+    scopes: naff.Absent[typing.List["naff.Snowflake_Type"]] = naff.MISSING,
     options: typing.Optional[
-        typing.List[typing.Union[dis_snek.SlashCommandOption, typing.Dict]]
+        typing.List[typing.Union[naff.SlashCommandOption, typing.Dict]]
     ] = None,
-    default_member_permissions: typing.Optional["dis_snek.Permissions"] = None,
+    default_member_permissions: typing.Optional["naff.Permissions"] = None,
     dm_permission: bool = True,
-    sub_cmd_name: str | dis_snek.LocalisedName = None,
-    group_name: str | dis_snek.LocalisedName = None,
-    sub_cmd_description: str | dis_snek.LocalisedDesc = "No Description Set",
-    group_description: str | dis_snek.LocalisedDesc = "No Description Set",
+    sub_cmd_name: str | naff.LocalisedName = None,
+    group_name: str | naff.LocalisedName = None,
+    sub_cmd_description: str | naff.LocalisedDesc = "No Description Set",
+    group_description: str | naff.LocalisedDesc = "No Description Set",
+    nsfw: bool = False,
 ) -> typing.Callable[[typing.Callable[..., typing.Coroutine]], TansySlashCommand]:
     """
     A decorator to declare a coroutine as a slash command.
@@ -273,7 +274,7 @@ def slash_command(
                 perm = func.default_member_permissions
 
         _description = description
-        if _description is dis_snek.MISSING:
+        if _description is naff.MISSING:
             _description = func.__doc__ or "No Description Set"
 
         return TansySlashCommand(
@@ -283,9 +284,10 @@ def slash_command(
             sub_cmd_name=sub_cmd_name,
             sub_cmd_description=sub_cmd_description,
             description=_description,
-            scopes=scopes or [dis_snek.const.GLOBAL_SCOPE],
+            scopes=scopes or [naff.const.GLOBAL_SCOPE],
             default_member_permissions=perm,
             dm_permission=dm_permission,
+            nsfw=nsfw,
             callback=func,
             options=options,
         )

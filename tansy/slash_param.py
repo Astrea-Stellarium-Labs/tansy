@@ -3,50 +3,50 @@ import types
 import typing
 
 import attrs
-import dis_snek
+import naff
 
 
-def get_option(t: dis_snek.OptionTypes | type):
+def get_option(t: naff.OptionTypes | type):
     if typing.get_origin(t) == typing.Annotated:
         t = typing.get_args(t)[1]
 
-    if isinstance(t, dis_snek.OptionTypes):
+    if isinstance(t, naff.OptionTypes):
         return t
 
     if isinstance(t, str):
-        return dis_snek.OptionTypes.STRING
+        return naff.OptionTypes.STRING
     if isinstance(t, int):
-        return dis_snek.OptionTypes.INTEGER
+        return naff.OptionTypes.INTEGER
     if isinstance(t, bool):
-        return dis_snek.OptionTypes.BOOLEAN
-    if isinstance(t, dis_snek.BaseUser):
-        return dis_snek.OptionTypes.USER
-    if isinstance(t, dis_snek.BaseChannel):
-        return dis_snek.OptionTypes.CHANNEL
-    if isinstance(t, dis_snek.Role):
-        return dis_snek.OptionTypes.ROLE
+        return naff.OptionTypes.BOOLEAN
+    if isinstance(t, naff.BaseUser):
+        return naff.OptionTypes.USER
+    if isinstance(t, naff.BaseChannel):
+        return naff.OptionTypes.CHANNEL
+    if isinstance(t, naff.Role):
+        return naff.OptionTypes.ROLE
     if isinstance(t, float):
-        return dis_snek.OptionTypes.NUMBER
-    if isinstance(t, dis_snek.Attachment):
-        return dis_snek.OptionTypes.ATTACHMENT
+        return naff.OptionTypes.NUMBER
+    if isinstance(t, naff.Attachment):
+        return naff.OptionTypes.ATTACHMENT
 
     if typing.get_origin(t) in {typing.Union, types.UnionType}:
         args = typing.get_args(t)
         if (
             len(args) in {2, 3}
-            and isinstance(args[0], (dis_snek.BaseUser, dis_snek.BaseChannel))
-            and isinstance(args[1], (dis_snek.BaseUser, dis_snek.BaseChannel))
+            and isinstance(args[0], (naff.BaseUser, naff.BaseChannel))
+            and isinstance(args[1], (naff.BaseUser, naff.BaseChannel))
         ):
-            return dis_snek.OptionTypes.MENTIONABLE
+            return naff.OptionTypes.MENTIONABLE
 
-    return dis_snek.OptionTypes.STRING
+    return naff.OptionTypes.STRING
 
 
 def _converter_converter(value: typing.Any):
     if value is None:
         return None
 
-    if isinstance(value, dis_snek.Converter):
+    if isinstance(value, naff.Converter):
         return value
     else:
         raise ValueError(f"{repr(value)} is not a valid converter.")
@@ -54,33 +54,33 @@ def _converter_converter(value: typing.Any):
 
 @attrs.define(kw_only=True)
 class ParamInfo:
-    name: dis_snek.LocalisedName = attrs.field(
-        default=None, converter=dis_snek.LocalisedName.converter
+    name: naff.LocalisedName = attrs.field(
+        default=None, converter=naff.LocalisedName.converter
     )
-    type: "typing.Optional[dis_snek.OptionTypes | type]" = attrs.field(default=None)
-    converter: typing.Optional[dis_snek.Converter] = attrs.field(
+    type: "typing.Optional[naff.OptionTypes | type]" = attrs.field(default=None)
+    converter: typing.Optional[naff.Converter] = attrs.field(
         default=None, converter=_converter_converter
     )  # type: ignore
-    default: typing.Any = attrs.field(default=dis_snek.MISSING)
-    description: dis_snek.LocalisedDesc = attrs.field(
-        default="No Description Set", converter=dis_snek.LocalisedDesc.converter
+    default: typing.Any = attrs.field(default=naff.MISSING)
+    description: naff.LocalisedDesc = attrs.field(
+        default="No Description Set", converter=naff.LocalisedDesc.converter
     )
     required: bool = attrs.field(default=True)
     autocomplete: typing.Callable = attrs.field(default=None)
-    choices: list[dis_snek.SlashCommandChoice | dict] = attrs.field(factory=list)
-    channel_types: list[dis_snek.ChannelTypes | int] | None = attrs.field(default=None)
+    choices: list[naff.SlashCommandChoice | dict] = attrs.field(factory=list)
+    channel_types: list[naff.ChannelTypes | int] | None = attrs.field(default=None)
     min_value: float = attrs.field(default=None)
     max_value: float = attrs.field(default=None)
 
-    _option_type: dis_snek.Absent[dis_snek.OptionTypes] = attrs.field(
-        default=dis_snek.MISSING
+    _option_type: naff.Absent[naff.OptionTypes] = attrs.field(
+        default=naff.MISSING
     )  # type: ignore
 
     @type.validator  # type: ignore
-    def _type_validator(self, attribute: str, value: dis_snek.OptionTypes) -> None:
+    def _type_validator(self, attribute: str, value: naff.OptionTypes) -> None:
         if value in [
-            dis_snek.OptionTypes.SUB_COMMAND,
-            dis_snek.OptionTypes.SUB_COMMAND_GROUP,
+            naff.OptionTypes.SUB_COMMAND,
+            naff.OptionTypes.SUB_COMMAND_GROUP,
         ]:
             raise ValueError(
                 "Options cannot be SUB_COMMAND or SUB_COMMAND_GROUP. If you want to"
@@ -89,15 +89,15 @@ class ParamInfo:
 
     @channel_types.validator  # type: ignore
     def _channel_types_validator(
-        self, attribute: str, value: typing.Optional[list[dis_snek.OptionTypes]]
+        self, attribute: str, value: typing.Optional[list[naff.OptionTypes]]
     ) -> None:
         if value is not None:
-            if self.type != dis_snek.OptionTypes.CHANNEL:
+            if self.type != naff.OptionTypes.CHANNEL:
                 raise ValueError("The option needs to be CHANNEL to use this")
 
-            allowed_int = [channel_type.value for channel_type in dis_snek.ChannelTypes]
+            allowed_int = [channel_type.value for channel_type in naff.ChannelTypes]
             for item in value:
-                if (item not in allowed_int) and (item not in dis_snek.ChannelTypes):
+                if (item not in allowed_int) and (item not in naff.ChannelTypes):
                     raise ValueError(f"{value} is not allowed here")
 
     @min_value.validator  # type: ignore
@@ -106,14 +106,14 @@ class ParamInfo:
     ) -> None:
         if value is not None:
             if self.type not in [
-                dis_snek.OptionTypes.INTEGER,
-                dis_snek.OptionTypes.NUMBER,
+                naff.OptionTypes.INTEGER,
+                naff.OptionTypes.NUMBER,
             ]:
                 raise ValueError(
                     "`min_value` can only be supplied with int or float options"
                 )
 
-            if self.type == dis_snek.OptionTypes.INTEGER and isinstance(value, float):
+            if self.type == naff.OptionTypes.INTEGER and isinstance(value, float):
                 raise ValueError("`min_value` needs to be an int in an int option")
 
             if (
@@ -129,14 +129,14 @@ class ParamInfo:
     ) -> None:
         if value is not None:
             if self.type not in [
-                dis_snek.OptionTypes.INTEGER,
-                dis_snek.OptionTypes.NUMBER,
+                naff.OptionTypes.INTEGER,
+                naff.OptionTypes.NUMBER,
             ]:
                 raise ValueError(
                     "`max_value` can only be supplied with int or float options"
                 )
 
-            if self.type == dis_snek.OptionTypes.INTEGER and isinstance(value, float):
+            if self.type == naff.OptionTypes.INTEGER and isinstance(value, float):
                 raise ValueError("`max_value` needs to be an int in an int option")
 
             if self.max_value and self.min_value and self.max_value < self.min_value:
@@ -146,13 +146,13 @@ class ParamInfo:
         if self.type:
             self._option_type = get_option(self.type)
         elif self.converter:
-            self._option_type = dis_snek.OptionTypes.STRING
+            self._option_type = naff.OptionTypes.STRING
 
-        if self.default is not dis_snek.MISSING:
+        if self.default is not naff.MISSING:
             self.required = False
 
-    def generate_option(self) -> dis_snek.SlashCommandOption:
-        return dis_snek.SlashCommandOption(
+    def generate_option(self) -> naff.SlashCommandOption:
+        return naff.SlashCommandOption(
             name=self.name,
             type=self._option_type,  # type: ignore
             description=self.description,
@@ -167,15 +167,15 @@ class ParamInfo:
 
 def Param(
     *,
-    name: dis_snek.LocalisedName | str = None,
-    type: "typing.Optional[dis_snek.OptionTypes | type]" = None,
-    converter: typing.Optional[dis_snek.Converter] = None,
-    default: typing.Any = dis_snek.MISSING,
-    description: dis_snek.LocalisedDesc | str = "No Description Set",
+    name: naff.LocalisedName | str = None,
+    type: "typing.Optional[naff.OptionTypes | type]" = None,
+    converter: typing.Optional[naff.Converter] = None,
+    default: typing.Any = naff.MISSING,
+    description: naff.LocalisedDesc | str = "No Description Set",
     required: bool = True,
     autocomplete: typing.Callable = None,
-    choices: list[dis_snek.SlashCommandChoice | dict,] = None,
-    channel_types: list[dis_snek.ChannelTypes | int] = None,
+    choices: list[naff.SlashCommandChoice | dict,] = None,
+    channel_types: list[naff.ChannelTypes | int] = None,
     min_value: float = None,
     max_value: float = None,
 ) -> typing.Any:
