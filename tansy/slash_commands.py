@@ -21,34 +21,12 @@ def _get_from_anno_type(anno: typing.Annotated) -> typing.Any:
     return args[0]
 
 
-def _get_converter_function(
-    anno: type[naff.Converter] | naff.Converter, name: str
-) -> typing.Callable[[naff.InteractionContext, str], typing.Any]:
-    num_params = len(inspect.signature(anno.convert).parameters.values())
-
-    # if we have three parameters for the function, it's likely it has a self parameter
-    # so we need to get rid of it by initing - typehinting hates this, btw!
-    # the below line will error out if we aren't supposed to init it, so that works out
-    actual_anno: naff.Converter = anno() if num_params == 3 else anno  # type: ignore
-    # we can only get to this point while having three params if we successfully inited
-    if num_params == 3:
-        num_params -= 1
-
-    if num_params != 2:
-        ValueError(
-            f"{naff.utils.get_object_name(anno)} for {name} is invalid: converters"
-            " must have exactly 2 arguments."
-        )
-
-    return actual_anno.convert
-
-
 def _get_converter(anno: type, name: str):
     if typing.get_origin(anno) == typing.Annotated:
         anno = _get_from_anno_type(anno)
 
     if isinstance(anno, naff.Converter):
-        return _get_converter_function(anno, name)
+        return naff.BaseCommand._get_converter_function(anno, name)
     elif inspect.isfunction(anno):
         num_params = len(inspect.signature(anno).parameters.values())
         match num_params:
@@ -148,7 +126,7 @@ class TansySlashCommand(naff.SlashCommand):
                     cmd_param.default = naff.MISSING
 
                 if param_info and param_info.converter:
-                    cmd_param.converter = _get_converter_function(
+                    cmd_param.converter = naff.BaseCommand._get_converter_function(
                         param_info.converter, param.name
                     )
                 elif converter := _get_converter(param.annotation, param.name):
