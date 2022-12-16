@@ -31,9 +31,13 @@ def _get_converter(anno: type, name: str):
         num_params = len(inspect.signature(anno).parameters.values())
         match num_params:
             case 2:
-                return lambda ctx, arg: anno(ctx, arg)
+                return anno
             case 1:
-                return lambda ctx, arg: anno(arg)
+
+                async def _one_arg_convert(_, arg) -> typing.Any:
+                    return await naff.utils.maybe_coroutine(anno, arg)
+
+                return _one_arg_convert
             case 0:
                 raise ValueError(
                     f"{naff.utils.get_object_name(anno)} for {name} has 0"
