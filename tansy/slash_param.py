@@ -86,6 +86,11 @@ class ParamInfo:
         if self.default is not naff.MISSING:
             self.required = False
 
+        if not self.required and self.default is naff.MISSING:
+            raise ValueError(
+                f"{self.name} is not required, but no default has been set!"
+            )
+
     @type.validator  # type: ignore
     def _type_validator(self, attribute: str, value: naff.OptionTypes) -> None:
         if value in [
