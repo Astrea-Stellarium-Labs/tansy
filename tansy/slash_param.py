@@ -10,6 +10,11 @@ def get_option(t: naff.OptionTypes | type):
     if typing.get_origin(t) == typing.Annotated:
         t = typing.get_args(t)[1]
 
+    if typing.get_origin(t) in {typing.Union, types.UnionType}:
+        args = typing.get_args(t)
+        if types.NoneType in args:  # optional type, get type within
+            t = next(a for a in args if a is not types.NoneType)
+
     if isinstance(t, naff.OptionTypes):
         return t
 
