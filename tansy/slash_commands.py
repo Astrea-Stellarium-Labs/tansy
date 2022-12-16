@@ -35,9 +35,12 @@ def _get_converter(anno: type, name: str):
             case 1:
                 return lambda ctx, arg: anno(arg)
             case 0:
-                return lambda ctx, arg: anno()
+                raise ValueError(
+                    f"{naff.utils.get_object_name(anno)} for {name} has 0"
+                    " arguments, which is unsupported."
+                )
             case _:
-                ValueError(
+                raise ValueError(
                     f"{naff.utils.get_object_name(anno)} for {name} has more than 2"
                     " arguments, which is unsupported."
                 )
