@@ -15,9 +15,7 @@ def _convert_to_bool(argument: str) -> bool:
     elif lowered in {"no", "n", "false", "f", "0", "disable", "off"}:
         return False
     else:
-        raise naff.errors.BadArgument(
-            f"{argument} is not a recognised boolean option."
-        )
+        raise naff.errors.BadArgument(f"{argument} is not a recognised boolean option.")
 
 
 def _get_from_anno_type(anno: typing.Annotated) -> typing.Any:

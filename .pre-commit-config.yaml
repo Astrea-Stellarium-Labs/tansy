@@ -1,18 +1,19 @@
 repos:
 - repo: https://github.com/asottile/reorder_python_imports
-  rev: v3.0.1
+  rev: v3.8.1
   hooks:
     - id: reorder-python-imports
 - repo: https://github.com/psf/black
-  rev: 22.3.0
+  rev: 22.6.0
   hooks:
     - id: black
-      args: [--preview]
+      args: [--target-version, py310, --preview]
+      language_version: python3.10
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v4.2.0
+  rev: v4.3.0
   hooks:
     - id: trailing-whitespace
 ci:
-  autofix_commit_msg: '[chore] auto fixes from pre-commit.com hooks'
+  autofix_commit_msg: 'ci: auto fixes from pre-commit.com hooks'
   autoupdate_branch: 'master'
-  autoupdate_commit_msg: '[chore] pre-commit autoupdate'
+  autoupdate_commit_msg: 'ci: pre-commit autoupdate'
