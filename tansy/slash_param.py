@@ -204,9 +204,9 @@ class ParamInfo:
 
 
 def Param(
+    description: naff.LocalisedDesc | str = "No Description Set",
     *,
     name: naff.LocalisedName | str | None = None,
-    description: naff.LocalisedDesc | str = "No Description Set",
     type: "typing.Optional[naff.OptionTypes | type]" = None,
     converter: typing.Optional[naff.Converter | typing.Callable] = None,
     default: typing.Any = naff.MISSING,
