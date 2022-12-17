@@ -1,87 +1,9 @@
-import types
 import typing
 
 import attrs
 import naff
 
-
-def issubclass_failsafe(
-    arg: typing.Any, cls: typing.Type | typing.Tuple[typing.Type]
-) -> bool:
-    try:
-        return issubclass(arg, cls)
-    except TypeError:
-        return False
-
-
-def filter_extras(t: naff.OptionTypes | type):
-    if typing.get_origin(t) == typing.Annotated:
-        t = typing.get_args(t)[1]
-
-    if typing.get_origin(t) in {typing.Union, types.UnionType}:
-        args = typing.get_args(t)
-        if types.NoneType in args:  # optional type, get type within
-            non_optional_args: tuple[type] = tuple(
-                a for a in args if a is not types.NoneType
-            )
-            if len(non_optional_args) == 1:
-                return non_optional_args[0]
-            return typing.Union[non_optional_args]  # type: ignore
-
-    return t
-
-
-def get_option(t: naff.OptionTypes | type):
-    t = filter_extras(t)
-
-    if isinstance(t, naff.OptionTypes):
-        return t
-
-    if t == str:
-        return naff.OptionTypes.STRING
-    if t == int:
-        return naff.OptionTypes.INTEGER
-    if t == bool:
-        return naff.OptionTypes.BOOLEAN
-    if issubclass_failsafe(t, (naff.BaseUser, naff.Member)):
-        return naff.OptionTypes.USER
-    if issubclass_failsafe(t, naff.BaseChannel):
-        return naff.OptionTypes.CHANNEL
-    if t == naff.Role:
-        return naff.OptionTypes.ROLE
-    if t == float:
-        return naff.OptionTypes.NUMBER
-    if t == naff.Attachment:
-        return naff.OptionTypes.ATTACHMENT
-
-    if typing.get_origin(t) in {typing.Union, types.UnionType}:
-        args = typing.get_args(t)
-
-        if len(args) in {2, 3} and args[0] != args[1]:
-            if (
-                issubclass_failsafe(args[0], (naff.BaseUser, naff.Role, naff.Member))
-                and issubclass_failsafe(
-                    args[1], (naff.BaseUser, naff.Role, naff.Member)
-                )
-                and (
-                    len(args) == 2
-                    or issubclass_failsafe(
-                        args[3], (naff.BaseUser, naff.Role, naff.Member)
-                    )
-                )
-            ):
-                return naff.OptionTypes.MENTIONABLE
-
-            if issubclass_failsafe(
-                args[0], (naff.BaseUser, naff.Member)
-            ) and issubclass_failsafe(args[1], (naff.BaseUser, naff.Member)):
-                return naff.OptionTypes.USER
-        elif all(
-            issubclass_failsafe(a, (naff.BaseChannel, types.NoneType)) for a in args
-        ):
-            return naff.OptionTypes.CHANNEL
-
-    raise ValueError("Invalid type provided.")
+from . import utils
 
 
 @attrs.define(kw_only=True)
@@ -248,7 +170,7 @@ def Param(
 ) -> typing.Any:
     return ParamInfo(
         name=name,
-        type=get_option(type) if type is not None else type,
+        type=utils.get_option(type) if type is not None else type,
         converter=converter,
         default=default,
         description=description,

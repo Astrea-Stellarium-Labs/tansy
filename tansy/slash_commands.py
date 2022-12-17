@@ -8,26 +8,12 @@ import attrs
 import naff
 
 from . import slash_param
-
-
-REVERSE_CHANNEL_MAPPING = {v: k for k, v in naff.TYPE_CHANNEL_MAPPING.items()}
-
-
-def _get_from_anno_type(anno: typing.Annotated) -> typing.Any:
-    """
-    Handles dealing with Annotated annotations, getting their (first) type annotation.
-    This allows correct type hinting with, say, Converters, for example.
-    """
-    # this is treated how it usually is during runtime
-    # the first argument is ignored and the rest is treated as is
-
-    args = typing.get_args(anno)[1:]
-    return args[0]
+from . import utils
 
 
 def _get_converter(anno: type, name: str):
     if typing.get_origin(anno) == typing.Annotated:
-        anno = _get_from_anno_type(anno)
+        anno = utils.get_from_anno_type(anno)
 
     if isinstance(anno, naff.Converter):
         return naff.BaseCommand._get_converter_function(anno, name)
@@ -108,7 +94,7 @@ class TansySlashCommand(naff.SlashCommand):
                     option = param_info.generate_option()
                 else:
                     try:
-                        option_type = slash_param.get_option(param.annotation)
+                        option_type = utils.get_option(param.annotation)
                     except ValueError:
                         raise ValueError(
                             f"Invalid/no provided type for {name}"
@@ -123,7 +109,7 @@ class TansySlashCommand(naff.SlashCommand):
 
                 if option.type is None:
                     try:
-                        option.type = slash_param.get_option(param.annotation)
+                        option.type = utils.get_option(param.annotation)
                     except ValueError:
                         raise ValueError(
                             f"Invalid/no provided type for {name}"
@@ -141,18 +127,16 @@ class TansySlashCommand(naff.SlashCommand):
                     and option.type == naff.OptionTypes.CHANNEL
                     and not option.channel_types
                 ):
-                    anno = slash_param.filter_extras(param.annotation)
+                    anno = utils.filter_extras(param.annotation)
                     if not isinstance(anno, naff.OptionTypes):
-                        if slash_param.issubclass_failsafe(anno, naff.BaseChannel) and (
-                            chan_type := REVERSE_CHANNEL_MAPPING.get(anno)
+                        if utils.issubclass_failsafe(anno, naff.BaseChannel) and (
+                            chan_type := utils.REVERSE_CHANNEL_MAPPING.get(anno)
                         ):
                             option.channel_types = [chan_type]
-                        elif typing.get_origin(anno) in {typing.Union, types.UnionType}:
+                        elif utils.is_union(anno):
                             args = typing.get_args(anno)
                             for arg in args:
-                                if args != types.NoneType and (
-                                    chan_type := REVERSE_CHANNEL_MAPPING.get(arg)
-                                ):
+                                if chan_type := utils.REVERSE_CHANNEL_MAPPING.get(arg):
                                     if option.channel_types is None:
                                         option.channel_types = []
                                     option.channel_types.append(chan_type)
