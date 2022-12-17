@@ -158,6 +158,9 @@ class TansySlashCommand(naff.SlashCommand):
                 elif converter := _get_converter(param.annotation, param.name):
                     cmd_param.converter = converter
 
+                # we bypassed validation earlier, so let's make sure everything's okay
+                # since we got the final option stuff now
+                attrs.validate(option)  # type: ignore
                 self.options.append(option)
                 self.parameters[cmd_param.name] = cmd_param
 
