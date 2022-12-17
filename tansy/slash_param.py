@@ -80,6 +80,101 @@ class ParamInfo(naff.SlashCommandOption):
                 f"{self.name} is not required, but no default has been set!"
             )
 
+    @channel_types.validator  # type: ignore
+    def _channel_types_validator(
+        self, attribute: str, value: typing.Optional[list[naff.OptionTypes]]
+    ) -> None:
+        if value is not None and self.type is not None:
+            if self.type != naff.OptionTypes.CHANNEL:
+                raise ValueError("The option needs to be CHANNEL to use this")
+
+            allowed_int = [channel_type.value for channel_type in naff.ChannelTypes]
+            for item in value:
+                if (item not in allowed_int) and (item not in naff.ChannelTypes):
+                    raise ValueError(f"{value} is not allowed here")
+
+    @min_value.validator  # type: ignore
+    def _min_value_validator(
+        self, attribute: str, value: typing.Optional[float]
+    ) -> None:
+        if value is not None and self.type is not None:
+            if self.type not in [
+                naff.OptionTypes.INTEGER,
+                naff.OptionTypes.NUMBER,
+            ]:
+                raise ValueError(
+                    "`min_value` can only be supplied with int or float options"
+                )
+
+            if self.type == naff.OptionTypes.INTEGER and isinstance(value, float):
+                raise ValueError("`min_value` needs to be an int in an int option")
+
+            if (
+                self.max_value is not None
+                and self.min_value is not None
+                and self.max_value < self.min_value
+            ):
+                raise ValueError("`min_value` needs to be <= than `max_value`")
+
+    @max_value.validator  # type: ignore
+    def _max_value_validator(
+        self, attribute: str, value: typing.Optional[float]
+    ) -> None:
+        if value is not None and self.type is not None:
+            if self.type not in [
+                naff.OptionTypes.INTEGER,
+                naff.OptionTypes.NUMBER,
+            ]:
+                raise ValueError(
+                    "`max_value` can only be supplied with int or float options"
+                )
+
+            if self.type == naff.OptionTypes.INTEGER and isinstance(value, float):
+                raise ValueError("`max_value` needs to be an int in an int option")
+
+            if self.max_value and self.min_value and self.max_value < self.min_value:
+                raise ValueError("`min_value` needs to be <= than `max_value`")
+
+    @min_length.validator
+    def _min_length_validator(
+        self, attribute: str, value: typing.Optional[int]
+    ) -> None:
+        if value is not None and self.type is not None:
+            if self.type != naff.OptionTypes.STRING:
+                raise ValueError(
+                    "`min_length` can only be supplied with string options"
+                )
+
+            if (
+                self.max_length is not None
+                and self.min_length is not None
+                and self.max_length < self.min_length
+            ):
+                raise ValueError("`min_length` needs to be <= than `max_length`")
+
+            if self.min_length < 0:
+                raise ValueError("`min_length` needs to be >= 0")
+
+    @max_length.validator
+    def _max_length_validator(
+        self, attribute: str, value: typing.Optional[int]
+    ) -> None:
+        if value is not None and self.type is not None:
+            if self.type != naff.OptionTypes.STRING:
+                raise ValueError(
+                    "`max_length` can only be supplied with string options"
+                )
+
+            if (
+                self.min_length is not None
+                and self.max_length is not None
+                and self.max_length < self.min_length
+            ):
+                raise ValueError("`min_length` needs to be <= than `max_length`")
+
+            if self.max_length < 1:
+                raise ValueError("`max_length` needs to be >= 1")
+
     def generate_option(self) -> naff.SlashCommandOption:
         return naff.SlashCommandOption(
             name=self.name,
