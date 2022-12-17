@@ -91,3 +91,23 @@ def get_option(t: naff.OptionTypes | type):
             return naff.OptionTypes.CHANNEL
 
     raise ValueError("Invalid type provided.")
+
+
+def resolve_channel_types(anno: typing.Any):
+    channel_types = []
+
+    anno = filter_extras(anno)
+
+    if isinstance(anno, naff.OptionTypes):
+        return None
+
+    if issubclass_failsafe(anno, naff.BaseChannel) and (
+        chan_type := REVERSE_CHANNEL_MAPPING.get(anno)
+    ):
+        channel_types = [chan_type]
+    elif is_union(anno):
+        for arg in typing.get_args(anno):
+            if chan_type := REVERSE_CHANNEL_MAPPING.get(arg):
+                channel_types.append(chan_type)
+
+    return channel_types or None

@@ -129,19 +129,7 @@ class TansySlashCommand(naff.SlashCommand):
                     and option.type == naff.OptionTypes.CHANNEL
                     and not option.channel_types
                 ):
-                    anno = utils.filter_extras(param.annotation)
-                    if not isinstance(anno, naff.OptionTypes):
-                        if utils.issubclass_failsafe(anno, naff.BaseChannel) and (
-                            chan_type := utils.REVERSE_CHANNEL_MAPPING.get(anno)
-                        ):
-                            option.channel_types = [chan_type]
-                        elif utils.is_union(anno):
-                            args = typing.get_args(anno)
-                            for arg in args:
-                                if chan_type := utils.REVERSE_CHANNEL_MAPPING.get(arg):
-                                    if option.channel_types is None:
-                                        option.channel_types = []
-                                    option.channel_types.append(chan_type)
+                    option.channel_types = utils.resolve_channel_types(param.annotation)  # type: ignore
 
                 if param_info and param_info.converter:
                     if convert_func := _get_converter(param_info.converter, param.name):

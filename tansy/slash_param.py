@@ -28,6 +28,8 @@ class ParamInfo:
     min_length: typing.Optional[int] = attrs.field(repr=False, default=None)
     max_length: typing.Optional[int] = attrs.field(repr=False, default=None)
 
+    _user_provided_type: typing.Any = attrs.field(repr=False, default=None)
+
     def __attrs_post_init__(self):
         if self.converter and self.type is None:
             self.type = naff.OptionTypes.STRING
@@ -43,6 +45,9 @@ class ParamInfo:
             raise ValueError(
                 f"{self.name} is not required, but no default has been set!"
             )
+
+        if self.type == naff.OptionTypes.CHANNEL and not self.channel_types:
+            self.channel_types = utils.resolve_channel_types(self._user_provided_type)  # type: ignore
 
     @channel_types.validator  # type: ignore
     def _channel_types_validator(
@@ -174,7 +179,8 @@ def Param(
 ) -> typing.Any:
     return ParamInfo(
         name=name,
-        type=utils.get_option(type) if type is not None else type,
+        type=utils.get_option(type) if type is not None else None,
+        user_provided_type=type,  # type: ignore
         converter=converter,
         default=default,
         description=description,
