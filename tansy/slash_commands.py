@@ -143,7 +143,7 @@ class TansySlashCommand(naff.SlashCommand):
                 ):
                     anno = slash_param.filter_extras(param.annotation)
                     if not isinstance(anno, naff.OptionTypes):
-                        if issubclass(anno, naff.BaseChannel) and (
+                        if slash_param.issubclass_failsafe(anno, naff.BaseChannel) and (
                             chan_type := REVERSE_CHANNEL_MAPPING.get(anno)
                         ):
                             option.channel_types = [chan_type]

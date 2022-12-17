@@ -5,6 +5,15 @@ import attrs
 import naff
 
 
+def issubclass_failsafe(
+    arg: typing.Any, cls: typing.Type | typing.Tuple[typing.Type]
+) -> bool:
+    try:
+        return issubclass(arg, cls)
+    except TypeError:
+        return False
+
+
 def filter_extras(t: naff.OptionTypes | type):
     if typing.get_origin(t) == typing.Annotated:
         t = typing.get_args(t)[1]
@@ -34,9 +43,9 @@ def get_option(t: naff.OptionTypes | type):
         return naff.OptionTypes.INTEGER
     if t == bool:
         return naff.OptionTypes.BOOLEAN
-    if issubclass(t, (naff.BaseUser, naff.Member)):
+    if issubclass_failsafe(t, (naff.BaseUser, naff.Member)):
         return naff.OptionTypes.USER
-    if issubclass(t, naff.BaseChannel):
+    if issubclass_failsafe(t, naff.BaseChannel):
         return naff.OptionTypes.CHANNEL
     if t == naff.Role:
         return naff.OptionTypes.ROLE
@@ -49,16 +58,18 @@ def get_option(t: naff.OptionTypes | type):
         args = typing.get_args(t)
 
         if len(args) in {2, 3} and args[0] != args[1]:
-            if issubclass(args[0], (naff.BaseUser, naff.BaseChannel)) and issubclass(
-                args[1], (naff.BaseUser, naff.BaseChannel)
-            ):
+            if issubclass_failsafe(
+                args[0], (naff.BaseUser, naff.BaseChannel)
+            ) and issubclass_failsafe(args[1], (naff.BaseUser, naff.BaseChannel)):
                 return naff.OptionTypes.MENTIONABLE
 
-            if issubclass(args[0], (naff.BaseUser, naff.Member)) and issubclass(
-                args[1], (naff.BaseUser, naff.Member)
-            ):
+            if issubclass_failsafe(
+                args[0], (naff.BaseUser, naff.Member)
+            ) and issubclass_failsafe(args[1], (naff.BaseUser, naff.Member)):
                 return naff.OptionTypes.USER
-        elif all(issubclass(a, (naff.BaseChannel, types.NoneType)) for a in args):
+        elif all(
+            issubclass_failsafe(a, (naff.BaseChannel, types.NoneType)) for a in args
+        ):
             return naff.OptionTypes.CHANNEL
 
     raise ValueError("Invalid type provided.")
