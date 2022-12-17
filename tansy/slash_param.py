@@ -58,9 +58,18 @@ def get_option(t: naff.OptionTypes | type):
         args = typing.get_args(t)
 
         if len(args) in {2, 3} and args[0] != args[1]:
-            if issubclass_failsafe(
-                args[0], (naff.BaseUser, naff.BaseChannel)
-            ) and issubclass_failsafe(args[1], (naff.BaseUser, naff.BaseChannel)):
+            if (
+                issubclass_failsafe(args[0], (naff.BaseUser, naff.Role, naff.Member))
+                and issubclass_failsafe(
+                    args[1], (naff.BaseUser, naff.Role, naff.Member)
+                )
+                and (
+                    len(args) == 2
+                    or issubclass_failsafe(
+                        args[3], (naff.BaseUser, naff.Role, naff.Member)
+                    )
+                )
+            ):
                 return naff.OptionTypes.MENTIONABLE
 
             if issubclass_failsafe(
