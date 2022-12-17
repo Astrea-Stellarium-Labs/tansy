@@ -37,7 +37,7 @@ class ParamInfo:
         if self.default is not naff.MISSING:
             self.required = False
 
-        if self.required and utils.is_optional(self.type):
+        if self.required and utils.is_optional(self._user_provided_type):
             self.required = False
             self.default = None
 
