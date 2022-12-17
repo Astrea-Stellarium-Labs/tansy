@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import inspect
+import types
 import typing
 
 import attrs
@@ -141,11 +142,20 @@ class TansySlashCommand(naff.SlashCommand):
                     and not option.channel_types
                 ):
                     anno = slash_param.filter_extras(param.annotation)
-                    if not isinstance(anno, naff.OptionTypes) and issubclass(
-                        anno, naff.BaseChannel
-                    ):
-                        if chan_type := REVERSE_CHANNEL_MAPPING.get(anno):
+                    if not isinstance(anno, naff.OptionTypes):
+                        if issubclass(anno, naff.BaseChannel) and (
+                            chan_type := REVERSE_CHANNEL_MAPPING.get(anno)
+                        ):
                             option.channel_types = [chan_type]
+                        elif typing.get_origin(anno) in {typing.Union, types.UnionType}:
+                            args = typing.get_args(anno)
+                            for arg in args:
+                                if args != types.NoneType and (
+                                    chan_type := REVERSE_CHANNEL_MAPPING.get(arg)
+                                ):
+                                    if option.channel_types is None:
+                                        option.channel_types = []
+                                    option.channel_types.append(chan_type)
 
                 if param_info and param_info.converter:
                     if convert_func := _get_converter(param_info.converter, param.name):

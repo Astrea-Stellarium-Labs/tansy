@@ -53,6 +53,8 @@ def get_option(t: naff.OptionTypes | type):
                 args[1], (naff.BaseUser, naff.Member)
             ):
                 return naff.OptionTypes.USER
+        elif all(issubclass(a, (naff.BaseChannel, types.NoneType)) for a in args):
+            return naff.OptionTypes.CHANNEL
 
     raise ValueError("Invalid type provided.")
 
