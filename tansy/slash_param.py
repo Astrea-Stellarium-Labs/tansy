@@ -29,7 +29,7 @@ def get_option(t: naff.OptionTypes | type):
         return naff.OptionTypes.INTEGER
     if t == bool:
         return naff.OptionTypes.BOOLEAN
-    if issubclass(t, naff.BaseUser):
+    if issubclass(t, (naff.BaseUser, naff.Member)):
         return naff.OptionTypes.USER
     if issubclass(t, naff.BaseChannel):
         return naff.OptionTypes.CHANNEL
