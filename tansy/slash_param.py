@@ -165,7 +165,7 @@ def Param(
     description: naff.LocalisedDesc | str = "No Description Set",
     *,
     name: naff.LocalisedName | str | None = None,
-    type: "typing.Optional[naff.OptionTypes | type]" = None,
+    type: typing.Any = None,
     converter: typing.Optional[naff.Converter | typing.Callable] = None,
     default: typing.Any = naff.MISSING,
     required: bool = True,
