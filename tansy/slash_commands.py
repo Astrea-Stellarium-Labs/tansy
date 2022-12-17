@@ -119,10 +119,22 @@ class TansySlashCommand(naff.SlashCommand):
                     cmd_param.default = param_info.default
                 elif param.default is not param.empty:
                     cmd_param.default = param.default
-                elif utils.is_optional(param.annotation):
-                    cmd_param.default = None
                 else:
                     cmd_param.default = naff.MISSING
+
+                # what we're checking here is:
+                # - if we don't already have a default
+                # - if the user didn't already specify a type in
+                #   param_info that would indicate if its optional or not
+                # - if the annotation is marked as optional
+                # if so, we want to make the option not required, and the default be None
+                if (
+                    cmd_param.default is naff.MISSING
+                    and (not param_info or not param_info._user_provided_type)
+                    and utils.is_optional(param.annotation)
+                ):
+                    option.required = False
+                    cmd_param.default = None
 
                 if (
                     param_info
