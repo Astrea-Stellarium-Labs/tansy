@@ -1,4 +1,9 @@
 # tansy
+
+[![PyPI](https://img.shields.io/pypi/v/tansy)](https://pypi.org/project/tansy/)
+[![Downloads](https://static.pepy.tech/personalized-badge/tansy?period=total&units=abbreviation&left_color=grey&right_color=green&left_text=pip%20installs)](https://pepy.tech/project/tansy)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 Unstable experiments with NAFF.
 
 Right now, `tansy` provides a unique way to define options for slash commands - a way that appears often in other Discord Python libraries.
