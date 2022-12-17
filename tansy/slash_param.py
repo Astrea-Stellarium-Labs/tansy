@@ -42,13 +42,17 @@ def get_option(t: naff.OptionTypes | type):
 
     if typing.get_origin(t) in {typing.Union, types.UnionType}:
         args = typing.get_args(t)
-        if (
-            len(args) in {2, 3}
-            and issubclass(args[0], (naff.BaseUser, naff.BaseChannel))
-            and issubclass(args[1], (naff.BaseUser, naff.BaseChannel))
-            and args[0] != args[1]
-        ):
-            return naff.OptionTypes.MENTIONABLE
+
+        if len(args) in {2, 3} and args[0] != args[1]:
+            if issubclass(args[0], (naff.BaseUser, naff.BaseChannel)) and issubclass(
+                args[1], (naff.BaseUser, naff.BaseChannel)
+            ):
+                return naff.OptionTypes.MENTIONABLE
+
+            if issubclass(args[0], (naff.BaseUser, naff.Member)) and issubclass(
+                args[1], (naff.BaseUser, naff.Member)
+            ):
+                return naff.OptionTypes.USER
 
     raise ValueError("Invalid type provided.")
 
