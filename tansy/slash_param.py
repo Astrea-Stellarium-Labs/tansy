@@ -5,7 +5,7 @@ import attrs
 import naff
 
 
-def get_option(t: naff.OptionTypes | type):
+def filter_extras(t: naff.OptionTypes | type):
     if typing.get_origin(t) == typing.Annotated:
         t = typing.get_args(t)[1]
 
@@ -13,6 +13,12 @@ def get_option(t: naff.OptionTypes | type):
         args = typing.get_args(t)
         if types.NoneType in args:  # optional type, get type within
             t = next(a for a in args if a is not types.NoneType)
+
+    return t
+
+
+def get_option(t: naff.OptionTypes | type):
+    t = filter_extras(t)
 
     if isinstance(t, naff.OptionTypes):
         return t

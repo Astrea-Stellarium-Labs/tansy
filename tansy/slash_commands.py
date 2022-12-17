@@ -9,6 +9,9 @@ import naff
 from . import slash_param
 
 
+REVERSE_CHANNEL_MAPPING = {v: k for k, v in naff.TYPE_CHANNEL_MAPPING.items()}
+
+
 def _get_from_anno_type(anno: typing.Annotated) -> typing.Any:
     """
     Handles dealing with Annotated annotations, getting their (first) type annotation.
@@ -131,6 +134,18 @@ class TansySlashCommand(naff.SlashCommand):
                     cmd_param.default = param.default
                 else:
                     cmd_param.default = naff.MISSING
+
+                if (
+                    param_info
+                    and option.type == naff.OptionTypes.CHANNEL
+                    and not option.channel_types
+                ):
+                    anno = slash_param.filter_extras(param.annotation)
+                    if not isinstance(anno, naff.OptionTypes) and issubclass(
+                        anno, naff.BaseChannel
+                    ):
+                        if chan_type := REVERSE_CHANNEL_MAPPING.get(anno):
+                            option.channel_types = [chan_type]
 
                 if param_info and param_info.converter:
                     if convert_func := _get_converter(param_info.converter, param.name):
