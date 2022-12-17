@@ -35,6 +35,10 @@ class ParamInfo:
         if self.default is not naff.MISSING:
             self.required = False
 
+        if self.required and utils.is_optional(self.type):
+            self.required = False
+            self.default = None
+
         if not self.required and self.default is naff.MISSING:
             raise ValueError(
                 f"{self.name} is not required, but no default has been set!"

@@ -41,19 +41,21 @@ def issubclass_failsafe(
         return False
 
 
+def is_optional(anno: typing.Any):
+    return is_union(anno) and types.NoneType in typing.get_args(anno)
+
+
 def filter_extras(t: naff.OptionTypes | type):
     if typing.get_origin(t) == typing.Annotated:
         t = get_from_anno_type(t)
 
-    if is_union(t):
-        args = typing.get_args(t)
-        if types.NoneType in args:  # optional type, get type within
-            non_optional_args: tuple[type] = tuple(
-                a for a in args if a is not types.NoneType
-            )
-            if len(non_optional_args) == 1:
-                return non_optional_args[0]
-            return typing.Union[non_optional_args]  # type: ignore
+    if is_optional(t):
+        non_optional_args: tuple[type] = tuple(
+            a for a in typing.get_args(t) if a is not types.NoneType
+        )
+        if len(non_optional_args) == 1:
+            return non_optional_args[0]
+        return typing.Union[non_optional_args]  # type: ignore
 
     return t
 
@@ -80,7 +82,6 @@ def get_option(t: naff.OptionTypes | type):
         return naff.OptionTypes.NUMBER
     if t == naff.Attachment:
         return naff.OptionTypes.ATTACHMENT
-
     if t in MENTIONABLE_UNIONS:
         return naff.OptionTypes.MENTIONABLE
 
