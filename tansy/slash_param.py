@@ -58,15 +58,26 @@ def get_option(t: naff.OptionTypes | type):
 
 
 @attrs.define(kw_only=True)
-class ParamInfo(naff.SlashCommandOption):
+class ParamInfo:
     name: naff.LocalisedName | str | None = attrs.field(
         default=None, converter=naff.LocalisedName.converter
+    )
+    description: naff.LocalisedDesc | str = attrs.field(
+        default="No Description Set", converter=naff.LocalisedDesc.converter
     )
     type: "naff.OptionTypes | None" = attrs.field(default=None)
     converter: typing.Optional[naff.Converter | typing.Callable] = attrs.field(
         default=None,
     )
     default: typing.Any = attrs.field(default=naff.MISSING)
+    required: bool = attrs.field(default=True)
+    autocomplete: bool = attrs.field(default=False)
+    choices: list[naff.SlashCommandChoice | dict] = attrs.field(factory=list)
+    channel_types: list[naff.ChannelTypes | int] | None = attrs.field(default=None)
+    min_value: typing.Optional[float] = attrs.field(default=None)
+    max_value: typing.Optional[float] = attrs.field(default=None)
+    min_length: typing.Optional[int] = attrs.field(repr=False, default=None)
+    max_length: typing.Optional[int] = attrs.field(repr=False, default=None)
 
     def __attrs_post_init__(self):
         if self.converter and self.type is None:
@@ -176,19 +187,20 @@ class ParamInfo(naff.SlashCommandOption):
                 raise ValueError("`max_length` needs to be >= 1")
 
     def generate_option(self) -> naff.SlashCommandOption:
-        return naff.SlashCommandOption(
-            name=self.name,
-            type=self.type,
-            description=self.description,
-            required=self.required,
-            autocomplete=self.autocomplete,
-            choices=self.choices or [],
-            channel_types=self.channel_types,
-            min_value=self.min_value,
-            max_value=self.max_value,
-            min_length=self.min_length,
-            max_length=self.max_length,
-        )
+        with attrs.validators.disabled():
+            return naff.SlashCommandOption(
+                name=self.name,
+                type=self.type,
+                description=self.description,
+                required=self.required,
+                autocomplete=self.autocomplete,
+                choices=self.choices or [],
+                channel_types=self.channel_types,
+                min_value=self.min_value,
+                max_value=self.max_value,
+                min_length=self.min_length,
+                max_length=self.max_length,
+            )
 
 
 def Param(
