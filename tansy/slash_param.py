@@ -12,7 +12,12 @@ def filter_extras(t: naff.OptionTypes | type):
     if typing.get_origin(t) in {typing.Union, types.UnionType}:
         args = typing.get_args(t)
         if types.NoneType in args:  # optional type, get type within
-            t = next(a for a in args if a is not types.NoneType)
+            non_optional_args: tuple[type] = tuple(
+                a for a in args if a is not types.NoneType
+            )
+            if len(non_optional_args) == 1:
+                return non_optional_args[0]
+            return typing.Union[non_optional_args]  # type: ignore
 
     return t
 
