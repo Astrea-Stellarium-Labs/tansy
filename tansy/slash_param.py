@@ -31,9 +31,6 @@ class ParamInfo:
     _user_provided_type: typing.Any = attrs.field(repr=False, default=None)
 
     def __attrs_post_init__(self):
-        if self.converter and self.type is None:
-            self.type = naff.OptionTypes.STRING
-
         if self.default is not naff.MISSING:
             self.required = False
 
