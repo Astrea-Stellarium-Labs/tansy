@@ -317,7 +317,7 @@ class TansySlashCommand(naff.SlashCommand):
                 converted = value
             new_kwargs[param.argument_name] = converted
 
-        return await callback(ctx, **new_kwargs)
+        return await self.call_with_binding(callback, ctx, **new_kwargs)
 
     def group(
         self, name: str = None, description: str = "No Description Set"
