@@ -298,7 +298,7 @@ class TansySlashCommand(naff.SlashCommand):
             ctx (naff.InteractionContext): The context to use for this command.
         """
         if not self.parameters:
-            return await callback(ctx)
+            return await callback(ctx, **ctx.kwargs)
 
         new_kwargs = {}
 
