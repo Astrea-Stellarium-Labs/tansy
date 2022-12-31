@@ -158,7 +158,7 @@ class ParamInfo:
             )
 
 
-def Param(
+def Option(
     description: naff.LocalisedDesc | str = "No Description Set",
     *,
     name: naff.LocalisedName | str | None = None,
@@ -192,4 +192,4 @@ def Param(
     )
 
 
-Option = Param
+Param = Option
