@@ -1,7 +1,6 @@
 import asyncio
-import functools
+import copy
 import inspect
-import types
 import typing
 
 import attrs
@@ -42,13 +41,81 @@ def _get_converter(anno: type, name: str):
         return None
 
 
+_C = typing.TypeVar("_C", bound=typing.Callable)
+
+
+def _overwrite_defaults(
+    func: _C, defaults: dict[str, typing.Any], parameters: dict[str, inspect.Parameter]
+) -> _C:
+    """
+    A cursed piece of code that overrides the defaults in a function with the defaults
+    provided, and returns the result of that. The defaults provided are assumed to be
+    in the order that appear in the function. To be somewhat safe, the edited function
+    is a shallow copy of the old function.
+
+    The code here isn't very complex, and you can likely understand most of this from
+    a glance, but this is a BAD idea, and you shouldn't do or use this as a beginner.
+    Editing the raw defaults and kwdefaults can lead to unintended behavior,
+    and touching magic properties like these are a big no-no in Python.
+    Use `functools.partial` if you want to set your own defaults for a function
+    programmatically most of the time.
+
+    So why did I do it anyway?
+    - Speed. Using `functools.partial` adds a pretty decent amount of overhead, especially
+      if it has to combine two kwargs together. In Tansy, doing this instead of adding
+      extra code in `call_callable` to insert defaults if they are missing adds an even
+      greater speed benefit, as calculations for what is missing do not need to be done.
+
+    - Compatibility and ease-of-use. If you're using the raw callback of commands for something,
+      like how I do sometimes, you don't want to be tripped up by putting an argument as
+      a positional argument instead of a keyword argument and suddenly getting an error,
+      even if that would fine in the raw function itself.
+
+    For example, this would occur:
+    ```python
+    async def original_func(arg: str):
+        print(arg)
+
+    defaults = {"arg": "hi!"}
+    new_func = partial(original_func, **defaults)
+
+    # would work fine in original_func, but python thinks that two values are being passed
+    # for "arg" because kwarg vs. positional, causing an error that would be hard to understand
+    # as an end-user
+    await new_func("hey!")
+    ```
+
+    Technically, it is possible to make a wrapper around a function that would handle those
+    cases just fine, but that adds a lot of overhead, more than just using `partial` or doing this.
+    """
+    func_copy = copy.copy(func)
+    old_kwarg_defaults = func.__kwdefaults__ or {}
+
+    new_defaults = []
+    new_kwarg_defaults = {}
+
+    for name, default in defaults.items():
+        if (
+            old_kwarg_defaults.get(name)
+            or parameters[name].kind == inspect._ParameterKind.KEYWORD_ONLY
+        ):
+            new_kwarg_defaults[name] = default
+        else:
+            new_defaults.append(default)
+
+    func_copy.__defaults__ = tuple(new_defaults) if new_defaults else None
+    func_copy.__kwdefaults__ = new_kwarg_defaults or None
+
+    return func_copy
+
+
 @attrs.define(slots=True)
 class TansySlashCommandParameter:
     """An object representing parameters in a command."""
 
     name: str = attrs.field(default=None)
     argument_name: str = attrs.field(default=None)
-    default: naff.Absent[typing.Any] = attrs.field(default=naff.MISSING)
+    default: typing.Any = attrs.field(default=naff.MISSING)
     type: typing.Type = attrs.field(default=None)
     converter: typing.Optional[typing.Callable] = attrs.field(default=None)
 
@@ -65,16 +132,26 @@ class TansySlashCommand(naff.SlashCommand):
 
     def __attrs_post_init__(self) -> None:
         if self.callback is not None:
+            signature_parameters = tuple(
+                inspect.signature(self.callback).parameters.items()
+            )
+
             self.options = []
 
             # qualname hack, oh how i've not missed you
-            if "." in self.callback.__qualname__:
-                callback = functools.partial(self.callback, None, None)
-            else:
-                callback = functools.partial(self.callback, None)
+            # in case you forgot - qualname contains the full name of a function,
+            # including the class it's in
+            # it just so happens that functions in a class with be like Class.func,
+            # and functions outside of one will be like func
+            # simply put, checking if there's a dot in the qualname basically
+            # also checks if it's in a class (or module, but shh) -
+            # if it's in a class, we're assuming there's a self in there (not always
+            # true, but naff relies on that assumption anyways),
+            # which we want to ignore
+            # we also want to ignore ctx too
+            starting_index = 2 if "." in self.callback.__qualname__ else 1
 
-            params = naff.utils.get_parameters(callback)
-            for name, param in params.items():
+            for name, param in signature_parameters[starting_index:]:
                 if param.kind == param.VAR_KEYWORD:
                     # something like **kwargs, that's fine so let it pass
                     continue
@@ -165,8 +242,46 @@ class TansySlashCommand(naff.SlashCommand):
                 self.options.append(option)
                 self.parameters[cmd_param.name] = cmd_param
 
+            # make sure the options arent in an invalid order -
+            # both to safeguard against invalid slash commands and because
+            # we rely on optional arguments being after required arguments right after this
+            attrs.validate(self)  # type: ignore
+
+            if self.parameters:
+                # i wont lie to you - what we're about to do is probably the
+                # most disgusting, hacky thing ive done in python, but there's a good
+                # reason for it
+                #
+                # you know how Option() exists in this lib? you know how you have to
+                # do arg: type = Option() in order to define an option usually when
+                # using tansy commands?
+                # well, now Option() is the default of arg in the command, which
+                # means if no value is provided for arg while using the raw callback,
+                # instead of erroring out or receiving the value specified in default=X
+                # (or None, if you used Optional and didn't explictly set a default value),
+                # the function will instead just pass in the ParamInfo generated by Option(),
+                # which is unintuitive and would result in a lot of bugs
+                #
+                # to prevent this, we overwrite the defaults in the function with ones
+                # that make more sense considering tansy's features
+                # explainations about the cursed _overwrite_defaults can be found
+                # in the function itself
+
+                defaults = {
+                    p.argument_name: p.default
+                    for p in self.parameters.values()
+                    if p.optional
+                }
+                self.callback = _overwrite_defaults(
+                    self.callback, defaults, dict(signature_parameters)
+                )
+
+            # since we're overriding __attrs_post_init__, we need to make sure
+            # we do this
             if hasattr(self.callback, "auto_defer"):
                 self.auto_defer = self.callback.auto_defer
+
+        # make sure checks and the like go through
         naff.BaseCommand.__attrs_post_init__(self)
 
     async def call_callback(
@@ -192,12 +307,6 @@ class TansySlashCommand(naff.SlashCommand):
             else:
                 converted = value
             new_kwargs[param.argument_name] = converted
-
-        not_found_param = tuple(
-            v for v in self.parameters.values() if v.argument_name not in new_kwargs
-        )
-        for value in not_found_param:
-            new_kwargs[value.argument_name] = value.default
 
         return await callback(ctx, **new_kwargs)
 
