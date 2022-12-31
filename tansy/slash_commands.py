@@ -17,7 +17,11 @@ def _get_converter(anno: type, name: str):
     if isinstance(anno, naff.Converter):
         return naff.BaseCommand._get_converter_function(anno, name)
     elif inspect.isroutine(anno):
-        num_params = len(inspect.signature(anno).parameters.values())
+        if hasattr(anno, "__code__"):
+            num_params: int = anno.__code__.co_argcount
+        else:
+            num_params = len(inspect.signature(anno).parameters.values())
+
         match num_params:
             case 2:
                 return anno
@@ -30,12 +34,12 @@ def _get_converter(anno: type, name: str):
             case 0:
                 raise ValueError(
                     f"{naff.utils.get_object_name(anno)} for {name} has 0"
-                    " arguments, which is unsupported."
+                    " positional arguments, which is unsupported."
                 )
             case _:
                 raise ValueError(
                     f"{naff.utils.get_object_name(anno)} for {name} has more than 2"
-                    " arguments, which is unsupported."
+                    " positional arguments, which is unsupported."
                 )
     else:
         return None
