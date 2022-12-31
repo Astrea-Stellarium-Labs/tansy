@@ -122,6 +122,7 @@ class TansySlashCommand(naff.SlashCommand):
                 if param_info:
                     cmd_param.default = param_info.default
                 elif param.default is not param.empty:
+                    option.required = False
                     cmd_param.default = param.default
                 else:
                     cmd_param.default = naff.MISSING
