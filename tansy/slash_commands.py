@@ -74,11 +74,11 @@ class TansySlashCommand(naff.SlashCommand):
                 callback = functools.partial(self.callback, None)
 
             params = naff.utils.get_parameters(callback)
-            for name, param in list(params.items()):
-                if param.kind not in [
+            for name, param in params.items():
+                if param.kind not in {
                     param.POSITIONAL_OR_KEYWORD,
                     param.KEYWORD_ONLY,
-                ]:
+                }:
                     raise ValueError(
                         "All parameters must be able to be used via keyword arguments."
                     )
