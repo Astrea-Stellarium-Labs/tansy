@@ -303,7 +303,12 @@ class TansySlashCommand(naff.SlashCommand):
         new_kwargs = {}
 
         for key, value in ctx.kwargs.items():
-            param = self.parameters[key]
+            param = self.parameters.get(key)
+            if not param:
+                # hopefully you have **kwargs
+                new_kwargs[key] = value
+                continue
+
             if param.converter:
                 converted = await naff.utils.maybe_coroutine(
                     param.converter, ctx, value
