@@ -75,6 +75,10 @@ class TansySlashCommand(naff.SlashCommand):
 
             params = naff.utils.get_parameters(callback)
             for name, param in params.items():
+                if param.kind == param.VAR_KEYWORD:
+                    # something like **kwargs, that's fine so let it pass
+                    continue
+
                 if param.kind not in {
                     param.POSITIONAL_OR_KEYWORD,
                     param.KEYWORD_ONLY,
