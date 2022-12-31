@@ -5,7 +5,7 @@ Unstable experiments with NAFF.
 :license: MIT, see LICENSE for more details.
 """
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
 
 
 from .slash_commands import *
