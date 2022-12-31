@@ -297,7 +297,7 @@ class TansySlashCommand(naff.SlashCommand):
             callback (Callable: The callback to run. This is provided for compatibility with naff.
             ctx (naff.InteractionContext): The context to use for this command.
         """
-        if len(self.parameters) == 0:
+        if not self.parameters:
             return await callback(ctx)
 
         new_kwargs = {}
