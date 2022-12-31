@@ -1,5 +1,6 @@
 import asyncio
 import copy
+import functools
 import inspect
 import typing
 
@@ -49,7 +50,9 @@ _C = typing.TypeVar("_C", bound=typing.Callable)
 
 
 def _overwrite_defaults(
-    func: _C, defaults: dict[str, typing.Any], parameters: dict[str, inspect.Parameter]
+    func: _C,
+    defaults: dict[str, typing.Any],
+    parameters: typing.Mapping[str, inspect.Parameter],
 ) -> _C:
     """
     A cursed piece of code that overrides the defaults in a function with the defaults
@@ -133,14 +136,35 @@ class TansySlashCommand(naff.SlashCommand):
     parameters: dict[str, TansySlashCommandParameter] = attrs.field(
         factory=dict, metadata=naff.utils.no_export_meta
     )
+    _inspect_signature: typing.Optional[inspect.Signature] = attrs.field(
+        repr=False, default=None, metadata=naff.utils.no_export_meta
+    )
 
     def __attrs_post_init__(self) -> None:
         if self.callback is not None:
-            signature_parameters = tuple(
-                inspect.signature(self.callback).parameters.items()
-            )
+            if not self._inspect_signature:
+                # qualname hack, oh how i've not missed you
+                # in case you forgot - qualname contains the full name of a function,
+                # including the class it's in
+                # it just so happens that functions in a class with be like Class.func,
+                # and functions outside of one will be like func
+                # simply put, checking if there's a dot in the qualname basically
+                # also checks if it's in a class (or module, but shh) -
+                # if it's in a class, we're assuming there's a self in there (not always
+                # true, but naff relies on that assumption anyways),
+                # which we want to ignore
+                # we also want to ignore ctx too
+                if "." in self.callback.__qualname__:
+                    callback = functools.partial(self.callback, None, None)
+                else:
+                    callback = functools.partial(self.callback, None)
 
-            self._parse_paramters(signature_parameters)
+                self._inspect_signature = inspect.signature(callback)
+
+            # in an ideal world, we wouldn't parse until right as the command is being
+            # added, but tansy doesn't have that much control over naff to hook onto
+            # that
+            self._parse_paramters()
 
             if self.parameters:
                 # i wont lie to you - what we're about to do is probably the
@@ -168,7 +192,7 @@ class TansySlashCommand(naff.SlashCommand):
                     if p.optional
                 }
                 self.callback = _overwrite_defaults(
-                    self.callback, defaults, dict(signature_parameters)
+                    self.callback, defaults, self._inspect_signature.parameters
                 )
 
             # since we're overriding __attrs_post_init__, we need to make sure
@@ -179,25 +203,13 @@ class TansySlashCommand(naff.SlashCommand):
         # make sure checks and the like go through
         naff.BaseCommand.__attrs_post_init__(self)
 
-    def _parse_paramters(
-        self, signature_parameters: tuple[tuple[str, inspect.Parameter]]
-    ):
+    def _parse_paramters(self):
         self.options = []
 
-        # qualname hack, oh how i've not missed you
-        # in case you forgot - qualname contains the full name of a function,
-        # including the class it's in
-        # it just so happens that functions in a class with be like Class.func,
-        # and functions outside of one will be like func
-        # simply put, checking if there's a dot in the qualname basically
-        # also checks if it's in a class (or module, but shh) -
-        # if it's in a class, we're assuming there's a self in there (not always
-        # true, but naff relies on that assumption anyways),
-        # which we want to ignore
-        # we also want to ignore ctx too
-        starting_index = 2 if "." in self.callback.__qualname__ else 1
+        if not self._inspect_signature:
+            raise ValueError("No signature found for the callback.")
 
-        for name, param in signature_parameters[starting_index:]:
+        for param in self._inspect_signature.parameters.values():
             if param.kind == param.VAR_KEYWORD:
                 # something like **kwargs, that's fine so let it pass
                 continue
@@ -223,18 +235,22 @@ class TansySlashCommand(naff.SlashCommand):
                 try:
                     option_type = utils.get_option(param.annotation)
                 except ValueError:
-                    raise ValueError(f"Invalid/no provided type for {name}") from None
-                option = naff.SlashCommandOption(name=name, type=option_type)
+                    raise ValueError(
+                        f"Invalid/no provided type for {param.name}"
+                    ) from None
+                option = naff.SlashCommandOption(name=param.name, type=option_type)
 
-            cmd_param.name = str(option.name) if option.name else name
-            cmd_param.argument_name = name
+            cmd_param.name = str(option.name) if option.name else param.name
+            cmd_param.argument_name = param.name
             option.name = option.name or naff.LocalisedName.converter(cmd_param.name)
 
             if option.type is None:
                 try:
                     option.type = utils.get_option(param.annotation)
                 except ValueError:
-                    raise ValueError(f"Invalid/no provided type for {name}") from None
+                    raise ValueError(
+                        f"Invalid/no provided type for {param.name}"
+                    ) from None
 
             if param_info:
                 cmd_param.default = param_info.default
