@@ -14,6 +14,8 @@ from .slash_param import *
 __all__ = (
     "TansySlashCommandParameter",
     "TansySlashCommand",
+    "SlashCommand",
+    "tansy_slash_command",
     "slash_command",
     "ParamInfo",
     "Param",

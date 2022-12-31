@@ -247,7 +247,7 @@ class TansySlashCommand(naff.SlashCommand):
         return wrapper
 
 
-def slash_command(
+def tansy_slash_command(
     name: str | naff.LocalisedName,
     *,
     description: naff.Absent[str | naff.LocalisedDesc] = naff.MISSING,
@@ -261,7 +261,7 @@ def slash_command(
     nsfw: bool = False,
 ) -> typing.Callable[[typing.Callable[..., typing.Coroutine]], TansySlashCommand]:
     """
-    A decorator to declare a coroutine as a slash command.
+    A decorator to declare a coroutine as a Tansy slash command.
     note:
         While the base and group descriptions arent visible in the discord client, currently.
         We strongly advise defining them anyway, if you're using subcommands, as Discord has said they will be visible in
@@ -311,3 +311,7 @@ def slash_command(
         )
 
     return wrapper
+
+
+SlashCommand = TansySlashCommand
+slash_command = tansy_slash_command
