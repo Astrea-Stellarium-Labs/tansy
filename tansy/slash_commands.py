@@ -140,116 +140,7 @@ class TansySlashCommand(naff.SlashCommand):
                 inspect.signature(self.callback).parameters.items()
             )
 
-            self.options = []
-
-            # qualname hack, oh how i've not missed you
-            # in case you forgot - qualname contains the full name of a function,
-            # including the class it's in
-            # it just so happens that functions in a class with be like Class.func,
-            # and functions outside of one will be like func
-            # simply put, checking if there's a dot in the qualname basically
-            # also checks if it's in a class (or module, but shh) -
-            # if it's in a class, we're assuming there's a self in there (not always
-            # true, but naff relies on that assumption anyways),
-            # which we want to ignore
-            # we also want to ignore ctx too
-            starting_index = 2 if "." in self.callback.__qualname__ else 1
-
-            for name, param in signature_parameters[starting_index:]:
-                if param.kind == param.VAR_KEYWORD:
-                    # something like **kwargs, that's fine so let it pass
-                    continue
-
-                if param.kind not in {
-                    param.POSITIONAL_OR_KEYWORD,
-                    param.KEYWORD_ONLY,
-                }:
-                    raise ValueError(
-                        "All parameters must be able to be used via keyword arguments."
-                    )
-
-                cmd_param = TansySlashCommandParameter()
-                param_info = (
-                    param.default
-                    if isinstance(param.default, slash_param.ParamInfo)
-                    else None
-                )
-
-                if param_info:
-                    option = param_info.generate_option()
-                else:
-                    try:
-                        option_type = utils.get_option(param.annotation)
-                    except ValueError:
-                        raise ValueError(
-                            f"Invalid/no provided type for {name}"
-                        ) from None
-                    option = naff.SlashCommandOption(name=name, type=option_type)
-
-                cmd_param.name = str(option.name) if option.name else name
-                cmd_param.argument_name = name
-                option.name = option.name or naff.LocalisedName.converter(
-                    cmd_param.name
-                )
-
-                if option.type is None:
-                    try:
-                        option.type = utils.get_option(param.annotation)
-                    except ValueError:
-                        raise ValueError(
-                            f"Invalid/no provided type for {name}"
-                        ) from None
-
-                if param_info:
-                    cmd_param.default = param_info.default
-                elif param.default is not param.empty:
-                    option.required = False
-                    cmd_param.default = param.default
-                else:
-                    cmd_param.default = naff.MISSING
-
-                # what we're checking here is:
-                # - if we don't already have a default
-                # - if the user didn't already specify a type in
-                #   param_info that would indicate if its optional or not
-                # - if the annotation is marked as optional
-                # if so, we want to make the option not required, and the default be None
-                if (
-                    cmd_param.default is naff.MISSING
-                    and (not param_info or not param_info._user_provided_type)
-                    and utils.is_optional(param.annotation)
-                ):
-                    option.required = False
-                    cmd_param.default = None
-
-                if (
-                    param_info
-                    and option.type == naff.OptionTypes.CHANNEL
-                    and not option.channel_types
-                ):
-                    option.channel_types = utils.resolve_channel_types(param.annotation)  # type: ignore
-
-                if param_info and param_info.converter:
-                    if convert_func := _get_converter(param_info.converter, param.name):
-                        cmd_param.converter = convert_func
-                    else:
-                        raise ValueError(
-                            f"The converter for {param.name} is invalid. Please make"
-                            " sure it is either a Converter-like class or a function."
-                        )
-                elif converter := _get_converter(param.annotation, param.name):
-                    cmd_param.converter = converter
-
-                # we bypassed validation earlier, so let's make sure everything's okay
-                # since we got the final option stuff now
-                attrs.validate(option)  # type: ignore
-                self.options.append(option)
-                self.parameters[cmd_param.name] = cmd_param
-
-            # make sure the options arent in an invalid order -
-            # both to safeguard against invalid slash commands and because
-            # we rely on optional arguments being after required arguments right after this
-            attrs.validate(self)  # type: ignore
+            self._parse_paramters(signature_parameters)
 
             if self.parameters:
                 # i wont lie to you - what we're about to do is probably the
@@ -287,6 +178,114 @@ class TansySlashCommand(naff.SlashCommand):
 
         # make sure checks and the like go through
         naff.BaseCommand.__attrs_post_init__(self)
+
+    def _parse_paramters(
+        self, signature_parameters: tuple[tuple[str, inspect.Parameter]]
+    ):
+        self.options = []
+
+        # qualname hack, oh how i've not missed you
+        # in case you forgot - qualname contains the full name of a function,
+        # including the class it's in
+        # it just so happens that functions in a class with be like Class.func,
+        # and functions outside of one will be like func
+        # simply put, checking if there's a dot in the qualname basically
+        # also checks if it's in a class (or module, but shh) -
+        # if it's in a class, we're assuming there's a self in there (not always
+        # true, but naff relies on that assumption anyways),
+        # which we want to ignore
+        # we also want to ignore ctx too
+        starting_index = 2 if "." in self.callback.__qualname__ else 1
+
+        for name, param in signature_parameters[starting_index:]:
+            if param.kind == param.VAR_KEYWORD:
+                # something like **kwargs, that's fine so let it pass
+                continue
+
+            if param.kind not in {
+                param.POSITIONAL_OR_KEYWORD,
+                param.KEYWORD_ONLY,
+            }:
+                raise ValueError(
+                    "All parameters must be able to be used via keyword arguments."
+                )
+
+            cmd_param = TansySlashCommandParameter()
+            param_info = (
+                param.default
+                if isinstance(param.default, slash_param.ParamInfo)
+                else None
+            )
+
+            if param_info:
+                option = param_info.generate_option()
+            else:
+                try:
+                    option_type = utils.get_option(param.annotation)
+                except ValueError:
+                    raise ValueError(f"Invalid/no provided type for {name}") from None
+                option = naff.SlashCommandOption(name=name, type=option_type)
+
+            cmd_param.name = str(option.name) if option.name else name
+            cmd_param.argument_name = name
+            option.name = option.name or naff.LocalisedName.converter(cmd_param.name)
+
+            if option.type is None:
+                try:
+                    option.type = utils.get_option(param.annotation)
+                except ValueError:
+                    raise ValueError(f"Invalid/no provided type for {name}") from None
+
+            if param_info:
+                cmd_param.default = param_info.default
+            elif param.default is not param.empty:
+                option.required = False
+                cmd_param.default = param.default
+            else:
+                cmd_param.default = naff.MISSING
+
+            # what we're checking here is:
+            # - if we don't already have a default
+            # - if the user didn't already specify a type in
+            #   param_info that would indicate if its optional or not
+            # - if the annotation is marked as optional
+            # if so, we want to make the option not required, and the default be None
+            if (
+                cmd_param.default is naff.MISSING
+                and (not param_info or not param_info._user_provided_type)
+                and utils.is_optional(param.annotation)
+            ):
+                option.required = False
+                cmd_param.default = None
+
+            if (
+                param_info
+                and option.type == naff.OptionTypes.CHANNEL
+                and not option.channel_types
+            ):
+                option.channel_types = utils.resolve_channel_types(param.annotation)  # type: ignore
+
+            if param_info and param_info.converter:
+                if convert_func := _get_converter(param_info.converter, param.name):
+                    cmd_param.converter = convert_func
+                else:
+                    raise ValueError(
+                        f"The converter for {param.name} is invalid. Please make"
+                        " sure it is either a Converter-like class or a function."
+                    )
+            elif converter := _get_converter(param.annotation, param.name):
+                cmd_param.converter = converter
+
+            # we bypassed validation earlier, so let's make sure everything's okay
+            # since we got the final option stuff now
+            attrs.validate(option)  # type: ignore
+            self.options.append(option)
+            self.parameters[cmd_param.name] = cmd_param
+
+        # make sure the options arent in an invalid order -
+        # both to safeguard against invalid slash commands and because
+        # we rely on optional arguments being after required arguments right after this
+        attrs.validate(self)  # type: ignore
 
     async def call_callback(
         self, callback: typing.Callable, ctx: naff.InteractionContext
