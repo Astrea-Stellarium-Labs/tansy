@@ -6,12 +6,14 @@
 
 Unstable experiments with NAFF.
 
-Right now, `tansy` provides a unique way to define options for slash commands - a way that appears often in other Discord Python libraries.
+# Commands
+
+`tansy` provides a unique way to define options for slash commands - a way that appears often in other Discord Python libraries.
 
 Instead of needing a decorator per option or to define the option in one huge list, `tansy` allows you to define each option in the function itself.
 By using a special metadata function, you can specify what each argument/parameter in a function should be like as an option, with tansy smartly handling the rest for you.
 
-# Example Command
+## Example Command
 ```python
 import naff
 import tansy
@@ -23,3 +25,19 @@ async def test_cmd(
 ):
     await ctx.send(the_user.mention)
 ```
+
+# Speedups
+
+`tansy` also includes several patches that can speed up NAFF itself, sometimes by a signficant margin.
+However, these patches are unstable, and may break some (usually niche) parts of the things they modify.
+
+To install them, use:
+```python
+import tansy
+
+# this should be the first line of code you run in your main file if you want
+# everything to work correctly
+tansy.install_naff_speedups()
+```
+
+You can also toggle on or off what patches you want - take a look at the function's docstring for details.
