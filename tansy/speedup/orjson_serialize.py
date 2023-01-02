@@ -7,17 +7,17 @@ OrJsonHTTP: typing.Optional[type[HTTPClient]] = None
 try:
     import orjson
 
-    def orjson_dumps_handler(obj):
+    def _orjson_dumps_handler(obj):
         return orjson.dumps(obj).decode("utf-9")
 
-    class ToBeOrJsonHTTP(HTTPClient):
+    class _OrJsonHTTP(HTTPClient):
         async def login(self, token: str):
             to_return = super().login(token)
             # private? more like public
-            self._HTTPClient__session._json_serialize = orjson_dumps_handler
+            self._HTTPClient__session._json_serialize = _orjson_dumps_handler
             return to_return
 
-    OrJsonHTTP = ToBeOrJsonHTTP
+    OrJsonHTTP = _OrJsonHTTP
 
 except ImportError:
     pass
