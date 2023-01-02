@@ -1,6 +1,7 @@
 import contextlib
 
 from . import embed
+from . import interaction_command
 from . import orjson_serialize
 
 __all__ = ("install_naff_speedups",)
@@ -14,7 +15,9 @@ with contextlib.suppress(ImportError):
 
 
 def install_naff_speedups(
-    embeds: bool = True, use_orjson_for_serialization: bool = HAS_ORJSON
+    embeds: bool = True,
+    interaction_commands: bool = True,
+    use_orjson_for_serialization: bool = HAS_ORJSON,
 ) -> None:
     """
     Monkeypatches/installs various speedups for NAFF.
@@ -35,6 +38,11 @@ def install_naff_speedups(
         Note: directing appending to the `fields` attribute in Embeds will cause unexpected
         behavior - it is suggested you use the `add_field(s)` functions instead while using this.
 
+        interaction_commands (bool): Speeds up interaction commands by pre-processing
+        parameters in a callback, similar to what Tansy and prefixed commands do. This saves
+        from having to re-analyze the command every time it is called and adds in proper
+        Annotated support (as a side effect), but breaks certain (niche) parts of commands.
+
         use_orjson_for_serialization (bool): By default, aiohttp, and so NAFF, use json for
         serializing payloads (when they are dicts, which is quite often). orjson is a faster
         alternative to the built-in json module, and is already used for deserialization if
@@ -46,5 +54,7 @@ def install_naff_speedups(
 
     if embeds:
         embed.patch()
+    if interaction_commands:
+        interaction_command.patch()
     if use_orjson_for_serialization:
         orjson_serialize.patch()
