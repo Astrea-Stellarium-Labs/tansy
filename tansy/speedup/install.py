@@ -15,6 +15,7 @@ with contextlib.suppress(ImportError):
 
 
 def install_naff_speedups(
+    *,
     embeds: bool = True,
     interaction_commands: bool = True,
     use_orjson_for_serialization: bool = HAS_ORJSON,
