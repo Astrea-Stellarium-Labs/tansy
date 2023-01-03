@@ -52,10 +52,7 @@ class BetterBaseCommand(naff.BaseCommand):
                     continue
 
                 if param.kind == inspect._ParameterKind.VAR_KEYWORD:
-                    if self._uses_arg:
-                        raise ValueError(
-                            "Cannot use both positional and keyword parameters."
-                        )
+                    self._uses_arg = False
                     continue
 
                 our_param = BaseCommandParameter(
