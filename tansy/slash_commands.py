@@ -5,7 +5,7 @@ import inspect
 import typing
 
 import attrs
-import naff
+import interactions as ipy
 
 from . import slash_param
 from . import utils
@@ -15,8 +15,8 @@ def _get_converter(anno: type, name: str):
     if typing.get_origin(anno) == typing.Annotated:
         anno = utils.get_from_anno_type(anno)
 
-    if isinstance(anno, naff.Converter):
-        return naff.BaseCommand._get_converter_function(anno, name)
+    if isinstance(anno, ipy.Converter):
+        return ipy.BaseCommand._get_converter_function(anno, name)
     elif inspect.isroutine(anno):
         if hasattr(anno, "__code__"):
             num_params: int = anno.__code__.co_argcount
@@ -29,17 +29,17 @@ def _get_converter(anno: type, name: str):
             case 1:
 
                 async def _one_arg_convert(_, arg) -> typing.Any:
-                    return await naff.utils.maybe_coroutine(anno, arg)
+                    return await ipy.utils.maybe_coroutine(anno, arg)
 
                 return _one_arg_convert
             case 0:
                 raise ValueError(
-                    f"{naff.utils.get_object_name(anno)} for {name} has 0"
+                    f"{ipy.utils.get_object_name(anno)} for {name} has 0"
                     " positional arguments, which is unsupported."
                 )
             case _:
                 raise ValueError(
-                    f"{naff.utils.get_object_name(anno)} for {name} has more than 2"
+                    f"{ipy.utils.get_object_name(anno)} for {name} has more than 2"
                     " positional arguments, which is unsupported."
                 )
     else:
@@ -122,22 +122,22 @@ class TansySlashCommandParameter:
 
     name: str = attrs.field(default=None)
     argument_name: str = attrs.field(default=None)
-    default: typing.Any = attrs.field(default=naff.MISSING)
+    default: typing.Any = attrs.field(default=ipy.MISSING)
     type: typing.Type = attrs.field(default=None)
     converter: typing.Optional[typing.Callable] = attrs.field(default=None)
 
     @property
     def optional(self) -> bool:
-        return self.default != naff.MISSING
+        return self.default != ipy.MISSING
 
 
-@naff.utils.define()
-class TansySlashCommand(naff.SlashCommand):
+@attrs.define(eq=False, order=False, hash=False, kw_only=True)
+class TansySlashCommand(ipy.SlashCommand):
     parameters: dict[str, TansySlashCommandParameter] = attrs.field(
-        factory=dict, metadata=naff.utils.no_export_meta
+        factory=dict, metadata=ipy.utils.no_export_meta
     )
     _inspect_signature: typing.Optional[inspect.Signature] = attrs.field(
-        repr=False, default=None, metadata=naff.utils.no_export_meta
+        repr=False, default=None, metadata=ipy.utils.no_export_meta
     )
 
     def __attrs_post_init__(self) -> None:
@@ -151,7 +151,7 @@ class TansySlashCommand(naff.SlashCommand):
                 # simply put, checking if there's a dot in the qualname basically
                 # also checks if it's in a class (or module, but shh) -
                 # if it's in a class, we're assuming there's a self in there (not always
-                # true, but naff relies on that assumption anyways),
+                # true, but ipy relies on that assumption anyways),
                 # which we want to ignore
                 # we also want to ignore ctx too
                 if "." in self.callback.__qualname__:
@@ -161,10 +161,11 @@ class TansySlashCommand(naff.SlashCommand):
 
                 self._inspect_signature = inspect.signature(callback)
 
+            # TODO: remove and adjust once slash command pr is merged
             # in an ideal world, we wouldn't parse until right as the command is being
-            # added, but tansy doesn't have that much control over naff to hook onto
+            # added, but tansy doesn't have that much control over ipy to hook onto
             # that
-            self._parse_paramters()
+            # self._parse_paramters()
 
             if self.parameters:
                 # i wont lie to you - what we're about to do is probably the
@@ -201,7 +202,7 @@ class TansySlashCommand(naff.SlashCommand):
                 self.auto_defer = self.callback.auto_defer
 
         # make sure checks and the like go through
-        naff.BaseCommand.__attrs_post_init__(self)
+        ipy.BaseCommand.__attrs_post_init__(self)
 
     def _parse_paramters(self):
         self.options = []
@@ -238,11 +239,11 @@ class TansySlashCommand(naff.SlashCommand):
                     raise ValueError(
                         f"Invalid/no provided type for {param.name}"
                     ) from None
-                option = naff.SlashCommandOption(name=param.name, type=option_type)
+                option = ipy.SlashCommandOption(name=param.name, type=option_type)
 
             cmd_param.name = str(option.name) if option.name else param.name
             cmd_param.argument_name = param.name
-            option.name = option.name or naff.LocalisedName.converter(cmd_param.name)
+            option.name = option.name or ipy.LocalisedName.converter(cmd_param.name)
 
             if option.type is None:
                 try:
@@ -258,7 +259,7 @@ class TansySlashCommand(naff.SlashCommand):
                 option.required = False
                 cmd_param.default = param.default
             else:
-                cmd_param.default = naff.MISSING
+                cmd_param.default = ipy.MISSING
 
             # what we're checking here is:
             # - if we don't already have a default
@@ -267,7 +268,7 @@ class TansySlashCommand(naff.SlashCommand):
             # - if the annotation is marked as optional
             # if so, we want to make the option not required, and the default be None
             if (
-                cmd_param.default is naff.MISSING
+                cmd_param.default is ipy.MISSING
                 and (not param_info or not param_info._user_provided_type)
                 and utils.is_optional(param.annotation)
             ):
@@ -276,7 +277,7 @@ class TansySlashCommand(naff.SlashCommand):
 
             if (
                 param_info
-                and option.type == naff.OptionTypes.CHANNEL
+                and option.type == ipy.OptionType.CHANNEL
                 and not option.channel_types
             ):
                 option.channel_types = utils.resolve_channel_types(param.annotation)  # type: ignore
@@ -304,13 +305,13 @@ class TansySlashCommand(naff.SlashCommand):
         attrs.validate(self)  # type: ignore
 
     async def call_callback(
-        self, callback: typing.Callable, ctx: naff.InteractionContext
+        self, callback: typing.Callable, ctx: ipy.InteractionContext
     ) -> None:
         """
         Runs the callback of this command.
         Args:
-            callback (Callable: The callback to run. This is provided for compatibility with naff.
-            ctx (naff.InteractionContext): The context to use for this command.
+            callback (Callable: The callback to run. This is provided for compatibility with ipy.
+            ctx (ipy.InteractionContext): The context to use for this command.
         """
         if not self.parameters:
             return await callback(ctx, **ctx.kwargs)
@@ -325,15 +326,14 @@ class TansySlashCommand(naff.SlashCommand):
                 continue
 
             if param.converter:
-                converted = await naff.utils.maybe_coroutine(
-                    param.converter, ctx, value
-                )
+                converted = await ipy.utils.maybe_coroutine(param.converter, ctx, value)
             else:
                 converted = value
             new_kwargs[param.argument_name] = converted
 
         return await self.call_with_binding(callback, ctx, **new_kwargs)
 
+    # TODO: add inherit checks when merged
     def group(
         self, name: str = None, description: str = "No Description Set"
     ) -> "TansySlashCommand":
@@ -347,10 +347,10 @@ class TansySlashCommand(naff.SlashCommand):
 
     def subcommand(
         self,
-        sub_cmd_name: naff.LocalisedName | str,
-        group_name: naff.LocalisedName | str = None,
-        sub_cmd_description: naff.Absent[naff.LocalisedDesc | str] = naff.MISSING,
-        group_description: naff.Absent[naff.LocalisedDesc | str] = naff.MISSING,
+        sub_cmd_name: ipy.LocalisedName | str,
+        group_name: ipy.LocalisedName | str = None,
+        sub_cmd_description: ipy.Absent[ipy.LocalisedDesc | str] = ipy.MISSING,
+        group_description: ipy.Absent[ipy.LocalisedDesc | str] = ipy.MISSING,
         nsfw: bool = False,
     ) -> typing.Callable[..., "TansySlashCommand"]:
         def wrapper(
@@ -361,7 +361,7 @@ class TansySlashCommand(naff.SlashCommand):
             if not asyncio.iscoroutinefunction(call):
                 raise TypeError("Subcommand must be coroutine")
 
-            if sub_cmd_description is naff.MISSING:
+            if sub_cmd_description is ipy.MISSING:
                 sub_cmd_description = call.__doc__ or "No Description Set"
 
             return TansySlashCommand(
@@ -382,16 +382,16 @@ class TansySlashCommand(naff.SlashCommand):
 
 
 def tansy_slash_command(
-    name: str | naff.LocalisedName,
+    name: str | ipy.LocalisedName,
     *,
-    description: naff.Absent[str | naff.LocalisedDesc] = naff.MISSING,
-    scopes: naff.Absent[typing.List["naff.Snowflake_Type"]] = naff.MISSING,
-    default_member_permissions: typing.Optional["naff.Permissions"] = None,
+    description: ipy.Absent[str | ipy.LocalisedDesc] = ipy.MISSING,
+    scopes: ipy.Absent[typing.List["ipy.Snowflake_Type"]] = ipy.MISSING,
+    default_member_permissions: typing.Optional["ipy.Permissions"] = None,
     dm_permission: bool = True,
-    sub_cmd_name: str | naff.LocalisedName = None,
-    group_name: str | naff.LocalisedName = None,
-    sub_cmd_description: str | naff.LocalisedDesc = "No Description Set",
-    group_description: str | naff.LocalisedDesc = "No Description Set",
+    sub_cmd_name: str | ipy.LocalisedName = None,
+    group_name: str | ipy.LocalisedName = None,
+    sub_cmd_description: str | ipy.LocalisedDesc = "No Description Set",
+    group_description: str | ipy.LocalisedDesc = "No Description Set",
     nsfw: bool = False,
 ) -> typing.Callable[[typing.Callable[..., typing.Coroutine]], TansySlashCommand]:
     """
@@ -427,7 +427,7 @@ def tansy_slash_command(
                 perm = func.default_member_permissions
 
         _description = description
-        if _description is naff.MISSING:
+        if _description is ipy.MISSING:
             _description = func.__doc__ or "No Description Set"
 
         return TansySlashCommand(
@@ -437,7 +437,7 @@ def tansy_slash_command(
             sub_cmd_name=sub_cmd_name,
             sub_cmd_description=sub_cmd_description,
             description=_description,
-            scopes=scopes or [naff.const.GLOBAL_SCOPE],
+            scopes=scopes or [ipy.const.GLOBAL_SCOPE],
             default_member_permissions=perm,
             dm_permission=dm_permission,
             nsfw=nsfw,

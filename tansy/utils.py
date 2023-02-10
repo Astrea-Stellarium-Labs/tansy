@@ -1,18 +1,19 @@
+import contextlib
 import itertools
 import types
 import typing
 
-import naff
+import interactions as ipy
 
-REVERSE_CHANNEL_MAPPING = {v: k for k, v in naff.TYPE_CHANNEL_MAPPING.items()}
+REVERSE_CHANNEL_MAPPING = {v: k for k, v in ipy.TYPE_CHANNEL_MAPPING.items()}
 
 UNION_TYPES = {typing.Union, types.UnionType}
 
-USER_TYPES = (naff.BaseUser, naff.User, naff.Member)
+USER_TYPES = (ipy.BaseUser, ipy.User, ipy.Member)
 USER_PRODUCT = itertools.product(USER_TYPES, USER_TYPES, USER_TYPES)
 
 MENTIONABLE_UNIONS = frozenset(
-    typing.Union[naff.Role, i, j, k] for i, j, k in USER_PRODUCT
+    typing.Union[ipy.Role, i, j, k] for i, j, k in USER_PRODUCT
 )
 USER_UNIONS = frozenset(typing.Union[i, j, k] for i, j, k in USER_PRODUCT)
 
@@ -45,7 +46,7 @@ def is_optional(anno: typing.Any):
     return is_union(anno) and types.NoneType in typing.get_args(anno)
 
 
-def filter_extras(t: naff.OptionTypes | type):
+def filter_extras(t: ipy.OptionType | type):
     if typing.get_origin(t) == typing.Annotated:
         t = get_from_anno_type(t)
 
@@ -60,35 +61,38 @@ def filter_extras(t: naff.OptionTypes | type):
     return t
 
 
-def get_option(t: naff.OptionTypes | type):
+def get_option(t: ipy.OptionType | type):
     t = filter_extras(t)
 
-    if isinstance(t, naff.OptionTypes):
+    if isinstance(t, ipy.OptionType):
         return t
 
+    with contextlib.suppress(ValueError):
+        return ipy.OptionType(t)
+
     if t == str:
-        return naff.OptionTypes.STRING
+        return ipy.OptionType.STRING
     if t == int:
-        return naff.OptionTypes.INTEGER
+        return ipy.OptionType.INTEGER
     if t == bool:
-        return naff.OptionTypes.BOOLEAN
-    if issubclass_failsafe(t, (naff.BaseUser, naff.Member)) or t in USER_UNIONS:
-        return naff.OptionTypes.USER
-    if issubclass_failsafe(t, naff.BaseChannel):
-        return naff.OptionTypes.CHANNEL
-    if t == naff.Role:
-        return naff.OptionTypes.ROLE
+        return ipy.OptionType.BOOLEAN
+    if issubclass_failsafe(t, (ipy.BaseUser, ipy.Member)) or t in USER_UNIONS:
+        return ipy.OptionType.USER
+    if issubclass_failsafe(t, ipy.BaseChannel):
+        return ipy.OptionType.CHANNEL
+    if t == ipy.Role:
+        return ipy.OptionType.ROLE
     if t == float:
-        return naff.OptionTypes.NUMBER
-    if t == naff.Attachment:
-        return naff.OptionTypes.ATTACHMENT
+        return ipy.OptionType.NUMBER
+    if t == ipy.Attachment:
+        return ipy.OptionType.ATTACHMENT
     if t in MENTIONABLE_UNIONS:
-        return naff.OptionTypes.MENTIONABLE
+        return ipy.OptionType.MENTIONABLE
 
     if is_union(t):
         args = typing.get_args(t)
-        if all(issubclass_failsafe(a, naff.BaseChannel) for a in args):
-            return naff.OptionTypes.CHANNEL
+        if all(issubclass_failsafe(a, ipy.BaseChannel) for a in args):
+            return ipy.OptionType.CHANNEL
 
     raise ValueError("Invalid type provided.")
 
@@ -98,10 +102,10 @@ def resolve_channel_types(anno: typing.Any):
 
     anno = filter_extras(anno)
 
-    if isinstance(anno, naff.OptionTypes):
+    if isinstance(anno, ipy.OptionType):
         return None
 
-    if issubclass_failsafe(anno, naff.BaseChannel) and (
+    if issubclass_failsafe(anno, ipy.BaseChannel) and (
         chan_type := REVERSE_CHANNEL_MAPPING.get(anno)
     ):
         channel_types = [chan_type]
