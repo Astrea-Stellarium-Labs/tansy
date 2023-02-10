@@ -25,19 +25,3 @@ async def test_cmd(
 ):
     await ctx.send(the_user.mention)
 ```
-
-# Speedups
-
-`tansy` also includes several patches that can speed up NAFF itself, sometimes by a signficant margin.
-However, these patches are unstable, and may break some (usually niche) parts of the things they modify.
-
-To install them, use:
-```python
-import tansy
-
-# this should be the first line of code you run in your main file if you want
-# everything to work correctly
-tansy.install_naff_speedups()
-```
-
-You can also toggle on or off what patches you want - take a look at the function's docstring for details.
