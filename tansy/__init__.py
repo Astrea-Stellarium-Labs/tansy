@@ -1,7 +1,7 @@
 """
 Tansy
-Unstable experiments with NAFF.
-:copyright: (c) 2022-present Astrea49
+Unstable experiments with interactions.py.
+:copyright: (c) 2022-present AstreaTSS
 :license: MIT, see LICENSE for more details.
 """
 

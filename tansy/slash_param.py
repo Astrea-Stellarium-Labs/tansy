@@ -1,28 +1,28 @@
 import typing
 
 import attrs
-import naff
+import interactions as ipy
 
 from . import utils
 
 
 @attrs.define(kw_only=True)
 class ParamInfo:
-    name: naff.LocalisedName | str | None = attrs.field(
-        default=None, converter=naff.LocalisedName.converter
+    name: ipy.LocalisedName | str | None = attrs.field(
+        default=None, converter=ipy.LocalisedName.converter
     )
-    description: naff.LocalisedDesc | str = attrs.field(
-        default="No Description Set", converter=naff.LocalisedDesc.converter
+    description: ipy.LocalisedDesc | str = attrs.field(
+        default="No Description Set", converter=ipy.LocalisedDesc.converter
     )
-    type: "naff.OptionTypes | None" = attrs.field(default=None)
-    converter: typing.Optional[naff.Converter | typing.Callable] = attrs.field(
+    type: "ipy.OptionType | None" = attrs.field(default=None)
+    converter: typing.Optional[ipy.Converter | typing.Callable] = attrs.field(
         default=None,
     )
-    default: typing.Any = attrs.field(default=naff.MISSING)
+    default: typing.Any = attrs.field(default=ipy.MISSING)
     required: bool = attrs.field(default=True)
     autocomplete: bool = attrs.field(default=False)
-    choices: list[naff.SlashCommandChoice | dict] = attrs.field(factory=list)
-    channel_types: list[naff.ChannelTypes | int] | None = attrs.field(default=None)
+    choices: list[ipy.SlashCommandChoice | dict] = attrs.field(factory=list)
+    channel_types: list[ipy.ChannelType | int] | None = attrs.field(default=None)
     min_value: typing.Optional[float] = attrs.field(default=None)
     max_value: typing.Optional[float] = attrs.field(default=None)
     min_length: typing.Optional[int] = attrs.field(repr=False, default=None)
@@ -31,32 +31,32 @@ class ParamInfo:
     _user_provided_type: typing.Any = attrs.field(repr=False, default=None)
 
     def __attrs_post_init__(self):
-        if self.default is not naff.MISSING:
+        if self.default is not ipy.MISSING:
             self.required = False
 
         if self.required and utils.is_optional(self._user_provided_type):
             self.required = False
             self.default = None
 
-        if not self.required and self.default is naff.MISSING:
+        if not self.required and self.default is ipy.MISSING:
             raise ValueError(
                 f"{self.name} is not required, but no default has been set!"
             )
 
-        if self.type == naff.OptionTypes.CHANNEL and not self.channel_types:
+        if self.type == ipy.OptionType.CHANNEL and not self.channel_types:
             self.channel_types = utils.resolve_channel_types(self._user_provided_type)  # type: ignore
 
     @channel_types.validator  # type: ignore
     def _channel_types_validator(
-        self, attribute: str, value: typing.Optional[list[naff.OptionTypes]]
+        self, attribute: str, value: typing.Optional[list[ipy.OptionType]]
     ) -> None:
         if value is not None and self.type is not None:
-            if self.type != naff.OptionTypes.CHANNEL:
+            if self.type != ipy.OptionType.CHANNEL:
                 raise ValueError("The option needs to be CHANNEL to use this")
 
-            allowed_int = [channel_type.value for channel_type in naff.ChannelTypes]
+            allowed_int = {channel_type.value for channel_type in ipy.ChannelType}
             for item in value:
-                if (item not in allowed_int) and (item not in naff.ChannelTypes):
+                if (item not in allowed_int) and (item not in ipy.ChannelType):
                     raise ValueError(f"{value} is not allowed here")
 
     @min_value.validator  # type: ignore
@@ -65,14 +65,14 @@ class ParamInfo:
     ) -> None:
         if value is not None and self.type is not None:
             if self.type not in [
-                naff.OptionTypes.INTEGER,
-                naff.OptionTypes.NUMBER,
+                ipy.OptionType.INTEGER,
+                ipy.OptionType.NUMBER,
             ]:
                 raise ValueError(
                     "`min_value` can only be supplied with int or float options"
                 )
 
-            if self.type == naff.OptionTypes.INTEGER and isinstance(value, float):
+            if self.type == ipy.OptionType.INTEGER and isinstance(value, float):
                 raise ValueError("`min_value` needs to be an int in an int option")
 
             if (
@@ -88,14 +88,14 @@ class ParamInfo:
     ) -> None:
         if value is not None and self.type is not None:
             if self.type not in [
-                naff.OptionTypes.INTEGER,
-                naff.OptionTypes.NUMBER,
+                ipy.OptionType.INTEGER,
+                ipy.OptionType.NUMBER,
             ]:
                 raise ValueError(
                     "`max_value` can only be supplied with int or float options"
                 )
 
-            if self.type == naff.OptionTypes.INTEGER and isinstance(value, float):
+            if self.type == ipy.OptionType.INTEGER and isinstance(value, float):
                 raise ValueError("`max_value` needs to be an int in an int option")
 
             if self.max_value and self.min_value and self.max_value < self.min_value:
@@ -106,7 +106,7 @@ class ParamInfo:
         self, attribute: str, value: typing.Optional[int]
     ) -> None:
         if value is not None and self.type is not None:
-            if self.type != naff.OptionTypes.STRING:
+            if self.type != ipy.OptionType.STRING:
                 raise ValueError(
                     "`min_length` can only be supplied with string options"
                 )
@@ -126,7 +126,7 @@ class ParamInfo:
         self, attribute: str, value: typing.Optional[int]
     ) -> None:
         if value is not None and self.type is not None:
-            if self.type != naff.OptionTypes.STRING:
+            if self.type != ipy.OptionType.STRING:
                 raise ValueError(
                     "`max_length` can only be supplied with string options"
                 )
@@ -141,9 +141,9 @@ class ParamInfo:
             if self.max_length < 1:
                 raise ValueError("`max_length` needs to be >= 1")
 
-    def generate_option(self) -> naff.SlashCommandOption:
+    def generate_option(self) -> ipy.SlashCommandOption:
         with attrs.validators.disabled():
-            return naff.SlashCommandOption(
+            return ipy.SlashCommandOption(
                 name=self.name,
                 type=self.type,
                 description=self.description,
@@ -159,16 +159,16 @@ class ParamInfo:
 
 
 def Option(
-    description: naff.LocalisedDesc | str = "No Description Set",
+    description: ipy.LocalisedDesc | str = "No Description Set",
     *,
-    name: naff.LocalisedName | str | None = None,
+    name: ipy.LocalisedName | str | None = None,
     type: typing.Any = None,
-    converter: typing.Optional[naff.Converter | typing.Callable] = None,
-    default: typing.Any = naff.MISSING,
+    converter: typing.Optional[ipy.Converter | typing.Callable] = None,
+    default: typing.Any = ipy.MISSING,
     required: bool = True,
     autocomplete: bool = False,
-    choices: list[naff.SlashCommandChoice | dict] | None = None,
-    channel_types: list[naff.ChannelTypes | int] | None = None,
+    choices: list[ipy.SlashCommandChoice | dict] | None = None,
+    channel_types: list[ipy.ChannelType | int] | None = None,
     min_value: float | None = None,
     max_value: float | None = None,
     min_length: int | None = None,
