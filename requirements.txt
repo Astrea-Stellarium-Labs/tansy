@@ -1,1 +1,1 @@
-naff>=2.0.0
+discord-py-interactions>=5.0.0

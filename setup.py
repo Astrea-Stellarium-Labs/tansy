@@ -9,10 +9,10 @@ with open("requirements.txt") as f:
 
 setup(
     name="tansy",
-    description="Unstable experiments with NAFF.",
+    description="Unstable experiments with interactions.py.",
     long_description=(Path(__file__).parent / "README.md").read_text(),
     long_description_content_type="text/markdown",
-    author="Astrea49",
+    author="AstreaTSS",
     url="https://github.com/Astrea49/tansy",
     version="0.5.2",
     packages=find_packages(),
