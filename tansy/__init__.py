@@ -10,7 +10,6 @@ __version__ = "0.5.2"
 
 from .slash_commands import *
 from .slash_param import *
-from .speedup import install_naff_speedups
 
 __all__ = (
     "TansySlashCommandParameter",
@@ -21,5 +20,4 @@ __all__ = (
     "ParamInfo",
     "Param",
     "Option",
-    "install_naff_speedups",
 )
