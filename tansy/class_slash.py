@@ -72,6 +72,11 @@ def class_slash_command(
         if not inspect.isclass(the_cls):
             raise TypeError("This is not a class.")
 
+        try:
+            the_cls()
+        except TypeError:
+            raise TypeError("The class's init must not have any required parameters.")
+
         if not hasattr(the_cls, "callback") or not inspect.iscoroutinefunction(
             the_cls.callback
         ):
