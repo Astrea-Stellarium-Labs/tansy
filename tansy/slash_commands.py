@@ -167,7 +167,7 @@ class TansySlashCommand(ipy.SlashCommand):
             self.callback, defaults, self._inspect_signature.parameters
         )
 
-    def _parse_paramters(self):
+    def _parse_parameters(self):
         if self.callback is None:
             return
 
