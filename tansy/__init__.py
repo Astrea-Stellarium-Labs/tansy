@@ -17,6 +17,8 @@ __all__ = (
     "SlashCommand",
     "tansy_slash_command",
     "slash_command",
+    "tansy_subcommand",
+    "subcommand",
     "ParamInfo",
     "Param",
     "Option",
