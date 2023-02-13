@@ -8,6 +8,7 @@ Unstable experiments with interactions.py.
 __version__ = "0.5.2"
 
 
+from .class_slash import *
 from .slash_commands import *
 from .slash_param import *
 
@@ -22,4 +23,6 @@ __all__ = (
     "ParamInfo",
     "Param",
     "Option",
+    "class_slash_command",
+    "class_subcommand",
 )
