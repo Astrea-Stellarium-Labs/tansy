@@ -78,7 +78,9 @@ def class_slash_command(
         try:
             the_cls()
         except TypeError:
-            raise TypeError("The class's init must not have any required parameters.")
+            raise TypeError(
+                "The class's init must not have any required parameters."
+            ) from None
 
         if not hasattr(the_cls, "callback") or not inspect.iscoroutinefunction(
             the_cls.callback
@@ -166,6 +168,11 @@ def class_subcommand(
     def wrapper(the_cls: type) -> TansySlashCommand:
         if not inspect.isclass(the_cls):
             raise TypeError("This is not a class.")
+
+        try:
+            the_cls()
+        except TypeError:
+            raise TypeError("The class's init must not have any required parameters.")
 
         if not hasattr(the_cls, "callback") or not inspect.iscoroutinefunction(
             the_cls.callback
