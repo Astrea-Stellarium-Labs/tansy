@@ -10,6 +10,16 @@ import interactions as ipy
 from . import slash_param
 from . import utils
 
+__all__ = (
+    "TansySlashCommandParameter",
+    "TansySlashCommand",
+    "tansy_slash_command",
+    "tansy_subcommand",
+    "SlashCommand",
+    "slash_command",
+    "subcommand",
+)
+
 
 def _get_converter(anno: type, name: str):
     if typing.get_origin(anno) == typing.Annotated:

@@ -5,6 +5,22 @@ import typing
 
 import interactions as ipy
 
+__all__ = (
+    "REVERSE_CHANNEL_MAPPING",
+    "UNION_TYPES",
+    "USER_TYPES",
+    "USER_PRODUCT",
+    "MENTIONABLE_UNIONS",
+    "USER_UNIONS",
+    "is_union",
+    "get_from_anno_type",
+    "issubclass_failsafe",
+    "is_optional",
+    "filter_extras",
+    "get_option",
+    "resolve_channel_types",
+)
+
 REVERSE_CHANNEL_MAPPING = {v: k for k, v in ipy.TYPE_CHANNEL_MAPPING.items()}
 
 UNION_TYPES = {typing.Union, types.UnionType}

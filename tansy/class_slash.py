@@ -7,6 +7,9 @@ from .slash_commands import TansySlashCommand
 from .slash_param import ParamInfo
 
 
+__all__ = ("class_slash_command", "class_subcommand")
+
+
 def _wrap_callback(the_cls: type):
     if "." in the_cls.__qualname__:
         # we need to do the qualname hack again to detect if this is in an extension
