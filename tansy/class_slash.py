@@ -172,7 +172,9 @@ def class_subcommand(
         try:
             the_cls()
         except TypeError:
-            raise TypeError("The class's init must not have any required parameters.")
+            raise TypeError(
+                "The class's init must not have any required parameters."
+            ) from None
 
         if not hasattr(the_cls, "callback") or not inspect.iscoroutinefunction(
             the_cls.callback
