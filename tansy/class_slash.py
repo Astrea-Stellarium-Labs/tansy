@@ -97,7 +97,7 @@ class ClassSlashCommand(TansySlashCommand):
         group_description: ipy.Absent[ipy.LocalisedDesc | str] = ipy.MISSING,
         nsfw: bool = False,
         inherit_checks: bool = True,
-    ) -> typing.Callable[..., "ClassSlashCommand"]:
+    ) -> typing.Callable[[type], "ClassSlashCommand"]:
         def wrapper(the_cls: type) -> "ClassSlashCommand":
             nonlocal sub_cmd_description
 
@@ -139,7 +139,7 @@ def class_slash_command(
     sub_cmd_description: str | ipy.LocalisedDesc = "No Description Set",
     group_description: str | ipy.LocalisedDesc = "No Description Set",
     nsfw: bool = False,
-):
+) -> typing.Callable[[type], ClassSlashCommand]:
     """
     A decorator to declare a class as a Tansy slash command.
     note:
@@ -161,7 +161,7 @@ def class_slash_command(
         ClassSlashCommand Object
     """
 
-    def process(the_cls: type):
+    def process(the_cls: type) -> ClassSlashCommand:
         _initial_checks(the_cls)
 
         _description = description
