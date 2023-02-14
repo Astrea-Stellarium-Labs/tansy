@@ -319,7 +319,6 @@ class TansySlashCommand(ipy.SlashCommand):
 
         return await self.call_with_binding(callback, ctx, **new_kwargs)
 
-    # TODO: add inherit checks when merged
     def group(
         self,
         name: str = None,

@@ -23,6 +23,7 @@ __all__ = (
     "ParamInfo",
     "Param",
     "Option",
+    "ClassSlashCommand",
     "class_slash_command",
     "class_subcommand",
 )
