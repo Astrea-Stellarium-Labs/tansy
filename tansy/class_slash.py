@@ -1,6 +1,8 @@
+import functools
 import inspect
 import typing
 
+import attrs
 import interactions as ipy
 
 from .slash_commands import TansySlashCommand
@@ -10,31 +12,21 @@ from .slash_param import ParamInfo
 __all__ = ("ClassSlashCommand", "class_slash_command", "class_subcommand")
 
 
-def _wrap_callback(the_cls: type):
-    if "." in the_cls.__qualname__:
-        # we need to do the qualname hack again to detect if this is in an extension
-        # or not
-        # we don't really care about self in this case, but what we're doing is hoping
-        # that ipys extension binder/wrapper wraps over self and not ctx, which makes the
-        # final result as expected correct
-        async def _call_self(self, ctx, **kwargs):
-            the_class = the_cls()
-            for name, value in kwargs.items():
-                the_class.__setattr__(name, value)
+# ipy will not wrap callbacks that are already partials
+# thus, this callback is made in mind to be wrapped in a partial - the first two arguments
+# should be, at the very least
+async def _cls_callback(
+    the_cls: type,
+    name: str,
+    ctx: ipy.InteractionContext,
+    *_: typing.Any,
+    **kwargs: typing.Any,
+):
+    the_class = the_cls()
+    for name, value in kwargs.items():
+        setattr(the_class, name, value)
 
-            return await the_class.callback(ctx)
-
-        return _call_self
-    else:
-
-        async def _call(ctx, **kwargs):
-            the_class = the_cls()
-            for name, value in kwargs.items():
-                the_class.__setattr__(name, value)
-
-            return await the_class.callback(ctx)
-
-        return _call
+    return await getattr(the_cls, name)(ctx)
 
 
 def _initial_checks(the_cls: type):
@@ -73,7 +65,37 @@ def _class_to_signature(the_cls: type):
     return inspect.Signature(parameters=parameters)
 
 
+@attrs.define(eq=False, order=False, hash=False, kw_only=True)
 class ClassSlashCommand(TansySlashCommand):
+    the_cls: type | None = attrs.field(
+        repr=False, default=None, metadata=ipy.utils.no_export_meta
+    )
+
+    def __attrs_post_init__(self) -> None:
+        if self.the_cls:
+            if hasattr(self.the_cls, "error_callback") and inspect.iscoroutinefunction(
+                self.the_cls.error_callback
+            ):
+                self.error_callback = functools.partial(
+                    _cls_callback, self.the_cls, "error_callback"
+                )
+
+            if hasattr(
+                self.the_cls, "pre_run_callback"
+            ) and inspect.iscoroutinefunction(self.the_cls.pre_run_callback):
+                self.pre_run_callback = functools.partial(
+                    _cls_callback, self.the_cls, "pre_run_callback"
+                )
+
+            if hasattr(
+                self.the_cls, "post_run_callback"
+            ) and inspect.iscoroutinefunction(self.the_cls.post_run_callback):
+                self.post_run_callback = functools.partial(
+                    _cls_callback, self.the_cls, "post_run_callback"
+                )
+
+        return super().__attrs_post_init__()
+
     def group(
         self,
         name: str = None,
@@ -120,11 +142,22 @@ class ClassSlashCommand(TansySlashCommand):
                 scopes=self.scopes,
                 nsfw=nsfw,
                 checks=self.checks if inherit_checks else [],
-                callback=_wrap_callback(the_cls),
+                callback=functools.partial(_cls_callback, the_cls, "callback"),
                 inspect_signature=sig,  # type: ignore
             )
 
         return wrapper
+
+    async def call_with_binding(
+        self, callback: typing.Callable, *args, **kwargs
+    ) -> typing.Any:
+        """
+        Call a given method, ignoring this object's _binding.
+
+        Args:
+            callback: The callback to call.
+        """
+        return await callback(*args, **kwargs)
 
 
 def class_slash_command(
@@ -181,7 +214,7 @@ def class_slash_command(
             default_member_permissions=default_member_permissions,
             dm_permission=dm_permission,
             nsfw=nsfw,
-            callback=_wrap_callback(the_cls),
+            callback=functools.partial(_cls_callback, the_cls, "callback"),
             inspect_signature=sig,  # type: ignore
         )
 
@@ -243,7 +276,7 @@ def class_subcommand(
             dm_permission=base_dm_permission,
             scopes=scopes or [ipy.const.GLOBAL_SCOPE],
             nsfw=nsfw,
-            callback=_wrap_callback(the_cls),
+            callback=functools.partial(_cls_callback, the_cls, "callback"),
             inspect_signature=sig,  # type: ignore
         )
         return cmd
