@@ -7,7 +7,7 @@ from .slash_commands import TansySlashCommand
 from .slash_param import ParamInfo
 
 
-__all__ = ("class_slash_command", "class_subcommand")
+__all__ = ("ClassSlashCommand", "class_slash_command", "class_subcommand")
 
 
 def _wrap_callback(the_cls: type):
@@ -35,6 +35,96 @@ def _wrap_callback(the_cls: type):
             return await the_class.callback(ctx)
 
         return _call
+
+
+def _initial_checks(the_cls: type):
+    if not inspect.isclass(the_cls):
+        raise TypeError("This is not a class.")
+
+    try:
+        the_cls()
+    except TypeError:
+        raise TypeError(
+            "The class's init must not have any required parameters."
+        ) from None
+
+    if not hasattr(the_cls, "callback") or not inspect.iscoroutinefunction(
+        the_cls.callback
+    ):
+        raise TypeError('You need an asynchronous callback called "callback" to call.')
+
+
+def _class_to_signature(the_cls: type):
+    parameters: list[inspect.Parameter] = []
+    annotations = inspect.get_annotations(the_cls)
+
+    for param_name, default in the_cls.__dict__.items():
+        if not isinstance(default, ParamInfo):
+            continue
+
+        param = inspect.Parameter(
+            name=param_name,
+            kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            default=default,
+            annotation=annotations.get(param_name, inspect._empty),
+        )
+        parameters.append(param)
+
+    return inspect.Signature(parameters=parameters)
+
+
+class ClassSlashCommand(TansySlashCommand):
+    def group(
+        self,
+        name: str = None,
+        description: str = "No Description Set",
+        inherit_checks: bool = True,
+    ) -> "ClassSlashCommand":
+        return ClassSlashCommand(
+            name=self.name,
+            description=self.description,
+            group_name=name,
+            group_description=description,
+            scopes=self.scopes,
+            checks=self.checks if inherit_checks else [],
+        )
+
+    def subcommand(
+        self,
+        sub_cmd_name: ipy.LocalisedName | str,
+        group_name: ipy.LocalisedName | str = None,
+        sub_cmd_description: ipy.Absent[ipy.LocalisedDesc | str] = ipy.MISSING,
+        group_description: ipy.Absent[ipy.LocalisedDesc | str] = ipy.MISSING,
+        nsfw: bool = False,
+        inherit_checks: bool = True,
+    ) -> typing.Callable[..., "ClassSlashCommand"]:
+        def wrapper(the_cls: type) -> "ClassSlashCommand":
+            nonlocal sub_cmd_description
+
+            _initial_checks(the_cls)
+
+            if sub_cmd_description is ipy.MISSING:
+                sub_cmd_description = the_cls.__doc__ or "No Description Set"
+
+            sig = _class_to_signature(the_cls)
+
+            return ClassSlashCommand(
+                name=self.name,
+                description=self.description,
+                group_name=group_name or self.group_name,
+                group_description=group_description or self.group_description,
+                sub_cmd_name=sub_cmd_name,
+                sub_cmd_description=sub_cmd_description,
+                default_member_permissions=self.default_member_permissions,
+                dm_permission=self.dm_permission,
+                scopes=self.scopes,
+                nsfw=nsfw,
+                checks=self.checks if inherit_checks else [],
+                callback=_wrap_callback(the_cls),
+                inspect_signature=sig,  # type: ignore
+            )
+
+        return wrapper
 
 
 def class_slash_command(
@@ -68,52 +158,19 @@ def class_slash_command(
         group_description: 1-100 character description of the group
         nsfw: This command should only work in NSFW channels
     Returns:
-        TansySlashCommand Object
+        ClassSlashCommand Object
     """
 
     def process(the_cls: type):
-        if not inspect.isclass(the_cls):
-            raise TypeError("This is not a class.")
-
-        try:
-            the_cls()
-        except TypeError:
-            raise TypeError(
-                "The class's init must not have any required parameters."
-            ) from None
-
-        if not hasattr(the_cls, "callback") or not inspect.iscoroutinefunction(
-            the_cls.callback
-        ):
-            raise TypeError(
-                'You need an asynchronous callback called "callback" to call.'
-            )
-
-        perm = default_member_permissions
+        _initial_checks(the_cls)
 
         _description = description
         if _description is ipy.MISSING:
             _description = the_cls.__doc__ or "No Description Set"
 
-        parameters: list[inspect.Parameter] = []
+        sig = _class_to_signature(the_cls)
 
-        annotations = inspect.get_annotations(the_cls)
-
-        for param_name, default in the_cls.__dict__.items():
-            if not isinstance(default, ParamInfo):
-                continue
-
-            param = inspect.Parameter(
-                name=param_name,
-                kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                default=default,
-                annotation=annotations.get(param_name, inspect._empty),
-            )
-            parameters.append(param)
-
-        sig = inspect.Signature(parameters=parameters)
-
-        return TansySlashCommand(
+        return ClassSlashCommand(
             name=name,
             group_name=group_name,
             group_description=group_description,
@@ -121,7 +178,7 @@ def class_slash_command(
             sub_cmd_description=sub_cmd_description,
             description=_description,
             scopes=scopes or [ipy.const.GLOBAL_SCOPE],
-            default_member_permissions=perm,
+            default_member_permissions=default_member_permissions,
             dm_permission=dm_permission,
             nsfw=nsfw,
             callback=_wrap_callback(the_cls),
@@ -145,7 +202,7 @@ def class_subcommand(
     sub_group_desc: typing.Optional[str | ipy.LocalisedDesc] = None,
     scopes: typing.List["ipy.Snowflake_Type"] = None,
     nsfw: bool = False,
-) -> typing.Callable[[type], TansySlashCommand]:
+) -> typing.Callable[[type], ClassSlashCommand]:
     """
     A decorator specifically tailored for creating a Tansy subcommand from a class.
     Args:
@@ -162,50 +219,19 @@ def class_subcommand(
         scopes: The scopes of which this command is available, defaults to GLOBAL_SCOPE
         nsfw: This command should only work in NSFW channels
     Returns:
-        A TansySlashCommand object
+        A ClassSlashCommand object
     """
 
-    def wrapper(the_cls: type) -> TansySlashCommand:
-        if not inspect.isclass(the_cls):
-            raise TypeError("This is not a class.")
-
-        try:
-            the_cls()
-        except TypeError:
-            raise TypeError(
-                "The class's init must not have any required parameters."
-            ) from None
-
-        if not hasattr(the_cls, "callback") or not inspect.iscoroutinefunction(
-            the_cls.callback
-        ):
-            raise TypeError(
-                'You need an asynchronous callback called "callback" to call.'
-            )
+    def wrapper(the_cls: type) -> ClassSlashCommand:
+        _initial_checks(the_cls)
 
         _description = description
         if _description is ipy.MISSING:
             _description = the_cls.__doc__ or "No Description Set"
 
-        parameters: list[inspect.Parameter] = []
+        sig = _class_to_signature(the_cls)
 
-        annotations = inspect.get_annotations(the_cls)
-
-        for param_name, default in the_cls.__dict__.items():
-            if not isinstance(default, ParamInfo):
-                continue
-
-            param = inspect.Parameter(
-                name=param_name,
-                kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                default=default,
-                annotation=annotations.get(param_name, inspect._empty),
-            )
-            parameters.append(param)
-
-        sig = inspect.Signature(parameters=parameters)
-
-        cmd = TansySlashCommand(
+        cmd = ClassSlashCommand(
             name=base,
             description=(base_description or base_desc) or "No Description Set",
             group_name=subcommand_group,
