@@ -142,6 +142,7 @@ class ClassSlashCommand(TansySlashCommand):
                 scopes=self.scopes,
                 nsfw=nsfw,
                 checks=self.checks if inherit_checks else [],
+                the_cls=the_cls,
                 callback=functools.partial(_cls_callback, the_cls, "callback"),
                 inspect_signature=sig,  # type: ignore
             )
@@ -214,6 +215,7 @@ def class_slash_command(
             default_member_permissions=default_member_permissions,
             dm_permission=dm_permission,
             nsfw=nsfw,
+            the_cls=the_cls,
             callback=functools.partial(_cls_callback, the_cls, "callback"),
             inspect_signature=sig,  # type: ignore
         )
@@ -276,6 +278,7 @@ def class_subcommand(
             dm_permission=base_dm_permission,
             scopes=scopes or [ipy.const.GLOBAL_SCOPE],
             nsfw=nsfw,
+            the_cls=the_cls,
             callback=functools.partial(_cls_callback, the_cls, "callback"),
             inspect_signature=sig,  # type: ignore
         )
