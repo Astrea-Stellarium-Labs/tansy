@@ -26,4 +26,5 @@ __all__ = (
     "ClassSlashCommand",
     "class_slash_command",
     "class_subcommand",
+    "describe",
 )

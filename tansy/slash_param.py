@@ -1,11 +1,19 @@
 import typing
+from builtins import hasattr
 
 import attrs
 import interactions as ipy
 
 from . import utils
 
-__all__ = ("ParamInfo", "Option", "Param")
+if typing.TYPE_CHECKING:
+    from .slash_commands import TansySlashCommand
+
+    SlashCommandT = typing.TypeVar(
+        "SlashCommandT", "TansySlashCommand", ipy.const.AsyncCallable
+    )
+
+__all__ = ("ParamInfo", "Option", "Param", "describe")
 
 
 @attrs.define(kw_only=True)
@@ -195,3 +203,28 @@ def Option(
 
 
 Param = Option
+
+
+def describe(
+    name: str, description: ipy.LocalisedDesc | str
+) -> typing.Callable[["SlashCommandT"], "SlashCommandT"]:
+    """
+    A decorator to add a description to a slash command.
+
+    Args:
+        name (str): The name of the description.
+        description (str): The description to add.
+
+    Returns:
+        Either the callback or slash command.
+    """
+
+    def decorator(func: "SlashCommandT") -> "SlashCommandT":
+        if hasattr(func, "callback"):
+            func = func.callback
+        if not hasattr(func, "__tansy_describe__"):
+            func.__tansy_describe__ = {}
+        func.__tansy_describe__[name] = ipy.LocalisedDesc.converter(description)
+        return func
+
+    return decorator
