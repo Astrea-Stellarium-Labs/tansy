@@ -107,7 +107,15 @@ def _overwrite_defaults(
     cases just fine, but that adds a lot of overhead, more than just using `partial` or doing this.
     """
     func_copy = copy.copy(func)
-    old_kwarg_defaults = func.__kwdefaults__ or {}
+    func_to_parse = func_copy
+
+    partial_func = False
+
+    if isinstance(func_copy, functools.partial):
+        func_to_parse = func_copy.func
+        partial_func = True
+
+    old_kwarg_defaults = func_to_parse.__kwdefaults__ or {}
 
     new_defaults = []
     new_kwarg_defaults = {}
@@ -121,8 +129,15 @@ def _overwrite_defaults(
         else:
             new_defaults.append(default)
 
-    func_copy.__defaults__ = tuple(new_defaults) if new_defaults else None
-    func_copy.__kwdefaults__ = new_kwarg_defaults or None
+    func_to_parse.__defaults__ = tuple(new_defaults) if new_defaults else None
+    func_to_parse.__kwdefaults__ = new_kwarg_defaults or None
+
+    if partial_func:
+        func_copy = functools.partial(
+            func_to_parse, *func_copy.args, **func_copy.keywords
+        )
+    else:
+        func_copy = func_to_parse
 
     return func_copy
 
