@@ -3,6 +3,7 @@ import copy
 import functools
 import inspect
 import typing
+from builtins import getattr
 
 import attrs
 import interactions as ipy
@@ -195,6 +196,10 @@ class TansySlashCommand(ipy.SlashCommand):
 
             self._inspect_signature = inspect.signature(callback)
 
+        describes: dict[str, ipy.LocalisedDesc] = getattr(
+            self.callback, "__tansy_describe__", {}
+        )
+
         for param in self._inspect_signature.parameters.values():
             if param.kind == param.VAR_KEYWORD:
                 # something like **kwargs, that's fine so let it pass
@@ -229,6 +234,9 @@ class TansySlashCommand(ipy.SlashCommand):
             cmd_param.name = str(option.name) if option.name else param.name
             cmd_param.argument_name = param.name
             option.name = option.name or ipy.LocalisedName.converter(cmd_param.name)
+
+            if desc := describes.get(option.name.default):
+                option.description = desc
 
             if option.type is None:
                 try:
