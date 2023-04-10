@@ -5,7 +5,7 @@ Unstable experiments with interactions.py.
 :license: MIT, see LICENSE for more details.
 """
 
-__version__ = "0.6.0"
+__version__ = "0.6.1"
 
 
 from .class_slash import *

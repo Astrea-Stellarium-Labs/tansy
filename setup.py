@@ -14,7 +14,7 @@ setup(
     long_description_content_type="text/markdown",
     author="AstreaTSS",
     url="https://github.com/Astrea49/tansy",
-    version="0.6.0",
+    version="0.6.1",
     packages=find_packages(),
     python_requires=">=3.10",
     install_requires=requirements,
