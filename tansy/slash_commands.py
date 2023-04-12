@@ -359,7 +359,7 @@ class TansySlashCommand(ipy.SlashCommand):
 
     def subcommand(
         self,
-        sub_cmd_name: ipy.LocalisedName | str,
+        sub_cmd_name: ipy.Absent[ipy.LocalisedName | str] = ipy.MISSING,
         group_name: ipy.LocalisedName | str = None,
         sub_cmd_description: ipy.Absent[ipy.LocalisedDesc | str] = ipy.MISSING,
         group_description: ipy.Absent[ipy.LocalisedDesc | str] = ipy.MISSING,
@@ -369,13 +369,15 @@ class TansySlashCommand(ipy.SlashCommand):
         def wrapper(
             call: typing.Callable[..., typing.Coroutine]
         ) -> "TansySlashCommand":
-            nonlocal sub_cmd_description
+            nonlocal sub_cmd_name, sub_cmd_description
 
             if not asyncio.iscoroutinefunction(call):
                 raise TypeError("Subcommand must be coroutine")
 
             if sub_cmd_description is ipy.MISSING:
                 sub_cmd_description = call.__doc__ or "No Description Set"
+            if sub_cmd_name is ipy.MISSING:
+                sub_cmd_name = call.__name__
 
             return TansySlashCommand(
                 name=self.name,
@@ -396,7 +398,7 @@ class TansySlashCommand(ipy.SlashCommand):
 
 
 def tansy_slash_command(
-    name: str | ipy.LocalisedName,
+    name: ipy.Absent[str | ipy.LocalisedName] = ipy.MISSING,
     *,
     description: ipy.Absent[str | ipy.LocalisedDesc] = ipy.MISSING,
     scopes: ipy.Absent[typing.List["ipy.Snowflake_Type"]] = ipy.MISSING,
@@ -415,7 +417,7 @@ def tansy_slash_command(
         We strongly advise defining them anyway, if you're using subcommands, as Discord has said they will be visible in
         one of the future ui updates.
     Args:
-        name: 1-32 character name of the command
+        name: 1-32 character name of the command, defaults to the name of the coroutine.
         description: 1-100 character description of the command
         scopes: The scope this command exists within
         default_member_permissions: What permissions members need to have by default to use this command.
@@ -440,12 +442,16 @@ def tansy_slash_command(
             else:
                 perm = func.default_member_permissions
 
+        _name = name
+        if _name is ipy.MISSING:
+            _name = func.__name__
+
         _description = description
         if _description is ipy.MISSING:
             _description = func.__doc__ or "No Description Set"
 
         return TansySlashCommand(
-            name=name,
+            name=_name,
             group_name=group_name,
             group_description=group_description,
             sub_cmd_name=sub_cmd_name,
@@ -465,7 +471,7 @@ def tansy_subcommand(
     base: str | ipy.LocalisedName,
     *,
     subcommand_group: typing.Optional[str | ipy.LocalisedName] = None,
-    name: typing.Optional[str | ipy.LocalisedName] = None,
+    name: ipy.Absent[str | ipy.LocalisedName] = ipy.MISSING,
     description: ipy.Absent[str | ipy.LocalisedDesc] = ipy.MISSING,
     base_description: typing.Optional[str | ipy.LocalisedDesc] = None,
     base_desc: typing.Optional[str | ipy.LocalisedDesc] = None,
@@ -499,6 +505,10 @@ def tansy_subcommand(
         if not asyncio.iscoroutinefunction(func):
             raise ValueError("Commands must be coroutines")
 
+        _name = name
+        if _name is ipy.MISSING:
+            _name = func.__name__
+
         _description = description
         if _description is ipy.MISSING:
             _description = func.__doc__ or "No Description Set"
@@ -509,7 +519,7 @@ def tansy_subcommand(
             group_name=subcommand_group,
             group_description=(subcommand_group_description or sub_group_desc)
             or "No Description Set",
-            sub_cmd_name=name,
+            sub_cmd_name=_name,
             sub_cmd_description=_description,
             default_member_permissions=base_default_member_permissions,
             dm_permission=base_dm_permission,
