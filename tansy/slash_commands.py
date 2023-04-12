@@ -354,7 +354,7 @@ class TansySlashCommand(ipy.SlashCommand):
             group_name=name,
             group_description=description,
             scopes=self.scopes,
-            checks=self.checks if inherit_checks else [],
+            checks=self.checks.copy() if inherit_checks else [],
         )
 
     def subcommand(
@@ -389,7 +389,7 @@ class TansySlashCommand(ipy.SlashCommand):
                 callback=call,
                 scopes=self.scopes,
                 nsfw=nsfw,
-                checks=self.checks if inherit_checks else [],
+                checks=self.checks.copy() if inherit_checks else [],
             )
 
         return wrapper
