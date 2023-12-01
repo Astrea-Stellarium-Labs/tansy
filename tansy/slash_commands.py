@@ -3,7 +3,6 @@ import copy
 import functools
 import inspect
 import typing
-from builtins import getattr
 
 import attrs
 import interactions as ipy
@@ -13,7 +12,6 @@ from . import slash_param
 from . import utils
 
 __all__ = (
-    "TansySlashCommandParameter",
     "TansySlashCommand",
     "TansyHybridSlashCommand",
     "tansy_slash_command",
@@ -149,22 +147,6 @@ def _overwrite_defaults(
     return func_copy
 
 
-@attrs.define(slots=True)
-class TansySlashCommandParameter:
-    """An object representing parameters in a command."""
-
-    name: str = attrs.field(default=None)
-    argument_name: str = attrs.field(default=None)
-    default: typing.Any = attrs.field(default=ipy.MISSING)
-    type: typing.Type = attrs.field(default=None)
-    kind: inspect._ParameterKind = attrs.field(default=ipy.MISSING)
-    converter: typing.Optional[typing.Callable] = attrs.field(default=None)
-
-    @property
-    def optional(self) -> bool:
-        return self.default != ipy.MISSING
-
-
 def _overwrite_with_parameters(cmd: "TansySlashCommand | TansyHybridSlashCommand"):
     # i wont lie to you - what we're about to do is probably the
     # most disgusting, hacky thing ive done in python, but there's a good
@@ -186,7 +168,9 @@ def _overwrite_with_parameters(cmd: "TansySlashCommand | TansyHybridSlashCommand
     # in the function itself
 
     defaults = {
-        p.argument_name: p.default for p in cmd.parameters.values() if p.optional
+        p.name: p.default
+        for p in cmd.parameters.values()
+        if p.default is not ipy.MISSING
     }
     cmd.callback = _overwrite_defaults(
         cmd.callback, defaults, cmd._inspect_signature.parameters
@@ -228,7 +212,7 @@ def tansy_parse_parameters(cmd: "TansySlashCommand | TansyHybridSlashCommand"):
                 "All parameters must be able to be used via keyword arguments."
             )
 
-        cmd_param = TansySlashCommandParameter(kind=param.kind)
+        cmd_param = ipy.SlashCommandParameter(param.name, param.annotation, param.kind)
         param_info = (
             param.default if isinstance(param.default, slash_param.ParamInfo) else None
         )
@@ -242,9 +226,8 @@ def tansy_parse_parameters(cmd: "TansySlashCommand | TansyHybridSlashCommand"):
                 raise ValueError(f"Invalid/no provided type for {param.name}") from None
             option = ipy.SlashCommandOption(name=param.name, type=option_type)
 
-        cmd_param.name = str(option.name) if option.name else param.name
-        cmd_param.argument_name = param.name
         option.name = option.name or ipy.LocalisedName.converter(cmd_param.name)
+        cmd_param._option_name = str(option.name) if option.name else None
 
         if desc := describes.get(option.name.default):
             option.description = desc
@@ -310,44 +293,12 @@ def tansy_parse_parameters(cmd: "TansySlashCommand | TansyHybridSlashCommand"):
 
 @attrs.define(eq=False, order=False, hash=False, kw_only=True)
 class TansySlashCommand(ipy.SlashCommand):
-    parameters: dict[str, TansySlashCommandParameter] = attrs.field(
-        factory=dict, metadata=ipy.utils.no_export_meta
-    )
     _inspect_signature: typing.Optional[inspect.Signature] = attrs.field(
         repr=False, default=None, metadata=ipy.utils.no_export_meta
     )
 
     def _parse_parameters(self) -> None:
         tansy_parse_parameters(self)
-
-    async def call_callback(
-        self, callback: typing.Callable, ctx: ipy.InteractionContext
-    ) -> None:
-        """
-        Runs the callback of this command.
-        Args:
-            callback (Callable: The callback to run. This is provided for compatibility with ipy.
-            ctx (ipy.InteractionContext): The context to use for this command.
-        """
-        if not self.parameters:
-            return await callback(ctx, **ctx.kwargs)
-
-        new_kwargs = {}
-
-        for key, value in ctx.kwargs.items():
-            param = self.parameters.get(key)
-            if not param:
-                # hopefully you have **kwargs
-                new_kwargs[key] = value
-                continue
-
-            if param.converter:
-                converted = await ipy.utils.maybe_coroutine(param.converter, ctx, value)
-            else:
-                converted = value
-            new_kwargs[param.argument_name] = converted
-
-        return await self.call_with_binding(callback, ctx, **new_kwargs)
 
     def group(
         self,
@@ -406,44 +357,12 @@ class TansySlashCommand(ipy.SlashCommand):
 
 @attrs.define(eq=False, order=False, hash=False, kw_only=True)
 class TansyHybridSlashCommand(hybrid.HybridSlashCommand):
-    parameters: dict[str, TansySlashCommandParameter] = attrs.field(
-        factory=dict, metadata=ipy.utils.no_export_meta
-    )
     _inspect_signature: typing.Optional[inspect.Signature] = attrs.field(
         repr=False, default=None, metadata=ipy.utils.no_export_meta
     )
 
     def _parse_parameters(self) -> None:
         tansy_parse_parameters(self)
-
-    async def call_callback(
-        self, callback: typing.Callable, ctx: hybrid.HybridContext
-    ) -> None:
-        """
-        Runs the callback of this command.
-        Args:
-            callback (Callable: The callback to run. This is provided for compatibility with ipy.
-            ctx (ipy.InteractionContext): The context to use for this command.
-        """
-        if not self.parameters:
-            return await callback(ctx, **ctx.kwargs)
-
-        new_kwargs = {}
-
-        for key, value in ctx.kwargs.items():
-            param = self.parameters.get(key)
-            if not param:
-                # hopefully you have **kwargs
-                new_kwargs[key] = value
-                continue
-
-            if param.converter:
-                converted = await ipy.utils.maybe_coroutine(param.converter, ctx, value)
-            else:
-                converted = value
-            new_kwargs[param.argument_name] = converted
-
-        return await self.call_with_binding(callback, ctx, **new_kwargs)
 
     def group(
         self,
