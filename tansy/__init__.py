@@ -14,7 +14,6 @@ from .slash_param import *
 
 __all__ = (
     "__version__",
-    "TansySlashCommandParameter",
     "TansySlashCommand",
     "TansyHybridSlashCommand",
     "SlashCommand",
@@ -34,4 +33,7 @@ __all__ = (
     "class_slash_command",
     "class_subcommand",
     "describe",
+    "ClashHybridSlashCommand",
+    "class_hybrid_slash_command",
+    "class_hybrid_subcommand",
 )
