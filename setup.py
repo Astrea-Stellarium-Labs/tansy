@@ -13,7 +13,7 @@ setup(
     long_description=(Path(__file__).parent / "README.md").read_text(),
     long_description_content_type="text/markdown",
     author="AstreaTSS",
-    url="https://github.com/Astrea49/tansy",
+    url="https://github.com/Astrea-Stellarium-Labs/tansyy",
     version="0.9.0",
     packages=find_packages(),
     python_requires=">=3.10",
