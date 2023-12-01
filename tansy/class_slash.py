@@ -421,7 +421,7 @@ def class_hybrid_slash_command(
         group_description: 1-100 character description of the group
         nsfw: This command should only work in NSFW channels
     Returns:
-        ClassSlashCommand Object
+        ClashHybridSlashCommand Object
     """
 
     def process(the_cls: type) -> ClashHybridSlashCommand:
@@ -483,7 +483,7 @@ def class_hybrid_subcommand(
         scopes: The scopes of which this command is available, defaults to GLOBAL_SCOPE
         nsfw: This command should only work in NSFW channels
     Returns:
-        A ClassSlashCommand object
+        A ClashHybridSlashCommand object
     """
 
     def wrapper(the_cls: type) -> ClashHybridSlashCommand:
