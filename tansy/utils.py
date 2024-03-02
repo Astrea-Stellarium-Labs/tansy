@@ -50,7 +50,7 @@ def get_from_anno_type(anno: typing.Annotated) -> typing.Any:
 
 
 def issubclass_failsafe(
-    arg: typing.Any, cls: typing.Type | typing.Tuple[typing.Type]
+    arg: typing.Any, cls: typing.Type | typing.Tuple[typing.Type, ...]
 ) -> bool:
     try:
         return issubclass(arg, cls)
@@ -62,12 +62,12 @@ def is_optional(anno: typing.Any):
     return is_union(anno) and types.NoneType in typing.get_args(anno)
 
 
-def filter_extras(t: ipy.OptionType | type):
+def filter_extras(t: ipy.OptionType | type) -> ipy.OptionType | type:
     if typing.get_origin(t) == typing.Annotated:
         t = get_from_anno_type(t)
 
     if is_optional(t):
-        non_optional_args: tuple[type] = tuple(
+        non_optional_args: tuple[type, ...] = tuple(
             a for a in typing.get_args(t) if a is not types.NoneType
         )
         if len(non_optional_args) == 1:
