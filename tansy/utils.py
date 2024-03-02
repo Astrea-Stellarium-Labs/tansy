@@ -122,12 +122,12 @@ def resolve_channel_types(anno: typing.Any):
         return None
 
     if issubclass_failsafe(anno, ipy.BaseChannel) and (
-        chan_type := REVERSE_CHANNEL_MAPPING.get(anno)
+        (chan_type := REVERSE_CHANNEL_MAPPING.get(anno)) is not None
     ):
         channel_types = [chan_type]
     elif is_union(anno):
         for arg in typing.get_args(anno):
-            if chan_type := REVERSE_CHANNEL_MAPPING.get(arg):
+            if (chan_type := REVERSE_CHANNEL_MAPPING.get(arg)) is not None:
                 channel_types.append(chan_type)
 
     return channel_types or None
