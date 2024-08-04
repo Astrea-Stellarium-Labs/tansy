@@ -223,7 +223,10 @@ def tansy_parse_parameters(cmd: "TansySlashCommand | TansyHybridSlashCommand"):
             try:
                 option_type = utils.get_option(param.annotation)
             except ValueError:
-                raise ValueError(f"Invalid/no provided type for {param.name}") from None
+                raise ValueError(
+                    f"Invalid/no provided type for {param.name} for"
+                    f" {cmd.resolved_name}: {param.annotation}"
+                ) from None
             option = ipy.SlashCommandOption(name=param.name, type=option_type)
 
         option.name = option.name or ipy.LocalisedName.converter(cmd_param.name)
