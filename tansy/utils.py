@@ -4,6 +4,7 @@ import types
 import typing
 
 import interactions as ipy
+from interactions.models.internal.converters import CONSUME_REST_MARKER
 
 __all__ = (
     "REVERSE_CHANNEL_MAPPING",
@@ -64,7 +65,10 @@ def is_optional(anno: typing.Any):
 
 def filter_extras(t: ipy.OptionType | type) -> ipy.OptionType | type:
     if typing.get_origin(t) == typing.Annotated:
-        t = get_from_anno_type(t)
+        temp_t = get_from_anno_type(t)
+        if temp_t == CONSUME_REST_MARKER:
+            return filter_extras(typing.get_args(t)[0])
+        t = temp_t
 
     if is_optional(t):
         non_optional_args: tuple[type, ...] = tuple(
