@@ -270,6 +270,10 @@ def class_slash_command(
     description: ipy.Absent[str | ipy.LocalisedDesc] = ipy.MISSING,
     scopes: ipy.Absent[typing.List["ipy.Snowflake_Type"]] = ipy.MISSING,
     default_member_permissions: typing.Optional["ipy.Permissions"] = None,
+    integration_types: typing.Optional[
+        typing.List[typing.Union[ipy.IntegrationType, int]]
+    ] = None,
+    contexts: typing.Optional[typing.List[typing.Union[ipy.ContextType, int]]] = None,
     dm_permission: bool = True,
     sub_cmd_name: str | ipy.LocalisedName = None,
     group_name: str | ipy.LocalisedName = None,
@@ -288,7 +292,9 @@ def class_slash_command(
         description: 1-100 character description of the command
         scopes: The scope this command exists within
         default_member_permissions: What permissions members need to have by default to use this command.
-        dm_permission: Should this command be available in DMs.
+        integration_types: Installation context(s) where the command is available, only for globally-scoped commands.
+        contexts: Interaction context(s) where the command can be used, only for globally-scoped commands.
+        dm_permission: Should this command be available in DMs (deprecated).
         sub_cmd_name: 1-32 character name of the subcommand
         sub_cmd_description: 1-100 character description of the subcommand
         group_name: 1-32 character name of the group
@@ -316,6 +322,13 @@ def class_slash_command(
             description=_description,
             scopes=scopes or [ipy.const.GLOBAL_SCOPE],
             default_member_permissions=default_member_permissions,
+            integration_types=integration_types or [ipy.IntegrationType.GUILD_INSTALL],
+            contexts=contexts
+            or [
+                ipy.ContextType.GUILD,
+                ipy.ContextType.BOT_DM,
+                ipy.ContextType.PRIVATE_CHANNEL,
+            ],
             dm_permission=dm_permission,
             nsfw=nsfw,
             the_cls=the_cls,
@@ -335,6 +348,12 @@ def class_subcommand(
     base_description: typing.Optional[str | ipy.LocalisedDesc] = None,
     base_desc: typing.Optional[str | ipy.LocalisedDesc] = None,
     base_default_member_permissions: typing.Optional["ipy.Permissions"] = None,
+    base_integration_types: typing.Optional[
+        typing.List[typing.Union[ipy.IntegrationType, int]]
+    ] = None,
+    base_contexts: typing.Optional[
+        typing.List[typing.Union[ipy.ContextType, int]]
+    ] = None,
     base_dm_permission: bool = True,
     subcommand_group_description: typing.Optional[str | ipy.LocalisedDesc] = None,
     sub_group_desc: typing.Optional[str | ipy.LocalisedDesc] = None,
@@ -351,7 +370,9 @@ def class_subcommand(
         base_description: The description of the base command
         base_desc: An alias of `base_description`
         base_default_member_permissions: What permissions members need to have by default to use this command.
-        base_dm_permission: Should this command be available in DMs.
+        base_integration_types: Installation context(s) where the command is available, only for globally-scoped commands.
+        base_contexts: Interaction context(s) where the command can be used, only for globally-scoped commands.
+        base_dm_permission: Should this command be available in DMs (deprecated).
         subcommand_group_description: Description of the subcommand group
         sub_group_desc: An alias for `subcommand_group_description`
         scopes: The scopes of which this command is available, defaults to GLOBAL_SCOPE
@@ -378,6 +399,14 @@ def class_subcommand(
             sub_cmd_name=name,
             sub_cmd_description=_description,
             default_member_permissions=base_default_member_permissions,
+            integration_types=base_integration_types
+            or [ipy.IntegrationType.GUILD_INSTALL],
+            contexts=base_contexts
+            or [
+                ipy.ContextType.GUILD,
+                ipy.ContextType.BOT_DM,
+                ipy.ContextType.PRIVATE_CHANNEL,
+            ],
             dm_permission=base_dm_permission,
             scopes=scopes or [ipy.const.GLOBAL_SCOPE],
             nsfw=nsfw,
@@ -393,15 +422,21 @@ def class_subcommand(
 def class_hybrid_slash_command(
     name: str | ipy.LocalisedName,
     *,
+    aliases: typing.Optional[list[str]] = None,
     description: ipy.Absent[str | ipy.LocalisedDesc] = ipy.MISSING,
-    scopes: ipy.Absent[typing.List["ipy.Snowflake_Type"]] = ipy.MISSING,
+    scopes: ipy.Absent[list["ipy.Snowflake_Type"]] = ipy.MISSING,
     default_member_permissions: typing.Optional["ipy.Permissions"] = None,
+    integration_types: typing.Optional[
+        typing.List[typing.Union[ipy.IntegrationType, int]]
+    ] = None,
+    contexts: typing.Optional[typing.List[typing.Union[ipy.ContextType, int]]] = None,
     dm_permission: bool = True,
     sub_cmd_name: str | ipy.LocalisedName = None,
     group_name: str | ipy.LocalisedName = None,
     sub_cmd_description: str | ipy.LocalisedDesc = "No Description Set",
     group_description: str | ipy.LocalisedDesc = "No Description Set",
     nsfw: bool = False,
+    silence_autocomplete_errors: bool = False,
 ) -> typing.Callable[[type], ClashHybridSlashCommand]:
     """
     A decorator to declare a class as a Tansy hybrid slash command.
@@ -411,15 +446,19 @@ def class_hybrid_slash_command(
         one of the future ui updates.
     Args:
         name: 1-32 character name of the command
+        aliases: Aliases for the prefixed command varient of the command. Has no effect on the slash command.
         description: 1-100 character description of the command
         scopes: The scope this command exists within
         default_member_permissions: What permissions members need to have by default to use this command.
-        dm_permission: Should this command be available in DMs.
+        integration_types: Installation context(s) where the command is available, only for globally-scoped commands.
+        contexts: Interaction context(s) where the command can be used, only for globally-scoped commands.
+        dm_permission: Should this command be available in DMs (deprecated).
         sub_cmd_name: 1-32 character name of the subcommand
         sub_cmd_description: 1-100 character description of the subcommand
         group_name: 1-32 character name of the group
         group_description: 1-100 character description of the group
         nsfw: This command should only work in NSFW channels
+        silence_autocomplete_errors: Should autocomplete errors be silenced. Don't use this unless you know what you're doing.
     Returns:
         ClashHybridSlashCommand Object
     """
@@ -442,8 +481,17 @@ def class_hybrid_slash_command(
             description=_description,
             scopes=scopes or [ipy.const.GLOBAL_SCOPE],
             default_member_permissions=default_member_permissions,
+            integration_types=integration_types or [ipy.IntegrationType.GUILD_INSTALL],
+            contexts=contexts
+            or [
+                ipy.ContextType.GUILD,
+                ipy.ContextType.BOT_DM,
+                ipy.ContextType.PRIVATE_CHANNEL,
+            ],
             dm_permission=dm_permission,
             nsfw=nsfw,
+            aliases=aliases or [],
+            silence_autocomplete_errors=silence_autocomplete_errors,
             the_cls=the_cls,
             callback=functools.partial(_cls_callback, the_cls, "callback"),
             inspect_signature=sig,  # type: ignore
@@ -456,16 +504,24 @@ def class_hybrid_subcommand(
     base: str | ipy.LocalisedName,
     *,
     subcommand_group: typing.Optional[str | ipy.LocalisedName] = None,
-    name: typing.Optional[str | ipy.LocalisedName] = None,
+    name: ipy.Absent[str | ipy.LocalisedName] = ipy.MISSING,
+    aliases: typing.Optional[list[str]] = None,
     description: ipy.Absent[str | ipy.LocalisedDesc] = ipy.MISSING,
     base_description: typing.Optional[str | ipy.LocalisedDesc] = None,
     base_desc: typing.Optional[str | ipy.LocalisedDesc] = None,
     base_default_member_permissions: typing.Optional["ipy.Permissions"] = None,
+    base_integration_types: typing.Optional[
+        typing.List[typing.Union[ipy.IntegrationType, int]]
+    ] = None,
+    base_contexts: typing.Optional[
+        typing.List[typing.Union[ipy.ContextType, int]]
+    ] = None,
     base_dm_permission: bool = True,
     subcommand_group_description: typing.Optional[str | ipy.LocalisedDesc] = None,
     sub_group_desc: typing.Optional[str | ipy.LocalisedDesc] = None,
-    scopes: typing.List["ipy.Snowflake_Type"] = None,
+    scopes: list["ipy.Snowflake_Type"] = None,
     nsfw: bool = False,
+    silence_autocomplete_errors: bool = False,
 ) -> typing.Callable[[type], ClashHybridSlashCommand]:
     """
     A decorator specifically tailored for creating a Tansy hybrid subcommand from a class.
@@ -473,15 +529,19 @@ def class_hybrid_subcommand(
         base: The name of the base command
         subcommand_group: The name of the subcommand group, if any.
         name: The name of the subcommand, defaults to the name of the coroutine.
+        aliases: Aliases for the prefixed command varient of the subcommand. Has no effect on the slash command.
         description: The description of the subcommand
         base_description: The description of the base command
         base_desc: An alias of `base_description`
         base_default_member_permissions: What permissions members need to have by default to use this command.
-        base_dm_permission: Should this command be available in DMs.
+        base_integration_types: Installation context(s) where the command is available, only for globally-scoped commands.
+        base_contexts: Interaction context(s) where the command can be used, only for globally-scoped commands.
+        base_dm_permission: Should this command be available in DMs (deprecated).
         subcommand_group_description: Description of the subcommand group
         sub_group_desc: An alias for `subcommand_group_description`
         scopes: The scopes of which this command is available, defaults to GLOBAL_SCOPE
         nsfw: This command should only work in NSFW channels
+        silence_autocomplete_errors: Should autocomplete errors be silenced. Don't use this unless you know what you're doing.
     Returns:
         A ClashHybridSlashCommand object
     """
@@ -504,9 +564,19 @@ def class_hybrid_subcommand(
             sub_cmd_name=name,
             sub_cmd_description=_description,
             default_member_permissions=base_default_member_permissions,
+            integration_types=base_integration_types
+            or [ipy.IntegrationType.GUILD_INSTALL],
+            contexts=base_contexts
+            or [
+                ipy.ContextType.GUILD,
+                ipy.ContextType.BOT_DM,
+                ipy.ContextType.PRIVATE_CHANNEL,
+            ],
             dm_permission=base_dm_permission,
             scopes=scopes or [ipy.const.GLOBAL_SCOPE],
             nsfw=nsfw,
+            aliases=aliases or [],
+            silence_autocomplete_errors=silence_autocomplete_errors,
             the_cls=the_cls,
             callback=functools.partial(_cls_callback, the_cls, "callback"),
             inspect_signature=sig,  # type: ignore
